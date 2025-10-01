@@ -36,14 +36,16 @@ struct SessionChartView: View {
                         createSessionBar(session: session)
                     }
                     
-                case .week, .month, .year:
+                case .week, .month, .halfYear, .year:
                     ForEach(viewModel.selectedPeriod == .week ?
-                            viewModel.weeklySessionsData :
-                                viewModel.selectedPeriod == .month ?
-                            viewModel.monthlySessionsData :
-                                viewModel.yearlySessionsData) { data in
-                        createAggregatedBar(data: data)
-                    }
+                                  viewModel.weeklySessionsData :
+                                  viewModel.selectedPeriod == .month ?
+                                  viewModel.monthlySessionsData :
+                                  viewModel.selectedPeriod == .halfYear ?
+                                  viewModel.halfYearSessionsData :
+                                  viewModel.yearlySessionsData) { data in
+                              createAggregatedBar(data: data)
+                          }
                 }
             }
             .chartXAxis {
@@ -84,41 +86,30 @@ struct SessionChartView: View {
               }
           }
       }
- 
+    
     @ChartContentBuilder
     private func createSessionBar(session: SessionData) -> some ChartContent {
-        let sittingCenter = session.sittingDate.addingTimeInterval(30 * 60)
-        let exercisingCenter = session.exercisingDate.addingTimeInterval(30 * 60)
-        
-        // Sitting бар
         createBar(
-            xValue: sittingCenter,
+            xValue: session.sittingDate,
             base: session.sittingBase,
             extra: session.sittingOvertime,
-            extraColor: .red,
+            extraColor: viewModel.barColor(for: .sitting),
             width: viewModel.dynamicBarWidth
         )
         
-        // Exercising бар
         createBar(
-            xValue: exercisingCenter,
+            xValue: session.exercisingDate, 
             base: session.exercisingBase,
             extra: session.exercisingExtra,
-            extraColor: .green,
+            extraColor: viewModel.barColor(for: .exercising),
             width: viewModel.dynamicBarWidth
         )
     }
-    
+
     @ChartContentBuilder
     private func createAggregatedBar(data: AggregatedData) -> some ChartContent {
-        let centerDate = viewModel.centerDate(for: data.date)
-        
-        // dynamic offset depends from bar width
-        let timeOffset: TimeInterval = data.activityType == .sitting ?
-        -viewModel.dynamicTimeOffset : viewModel.dynamicTimeOffset
-        
-        let adjustedDate = centerDate.addingTimeInterval(timeOffset)
-        let extraColor: Color = data.activityType == .sitting ? .red : .green
+        let adjustedDate = viewModel.calculateBarPosition(for: data)
+        let extraColor = viewModel.barColor(for: data.activityType)
         
         createBar(
             xValue: adjustedDate,

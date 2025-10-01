@@ -19,11 +19,12 @@ class SessionChartViewModel {
     }
     
     enum ChartPeriod: String, CaseIterable {
-        case day = "Day"
-        case threeDays = "3 days"
-        case week = "Week"
-        case month = "Month"
-        case year = "Year"
+        case day = "1"
+        case threeDays = "3"
+        case week = "7"
+        case month = "30"
+        case halfYear = "180"
+        case year = "365"
     }
     
     var selectedPeriod: ChartPeriod = .day
@@ -39,10 +40,13 @@ class SessionChartViewModel {
             return weekDateXAxisRange
         case .month:
             return monthXAxisRange
+        case .halfYear:
+            return halfYearXAxisRange
         case .year:
             return yearAxisRange
         }
     }
+    
     
     var yAxisStep: Double {
         let maxValue = maxYValue * 1.1
@@ -72,6 +76,9 @@ class SessionChartViewModel {
             return max(maxValue, Constants.defaultPeriodInMinutes)
         case .month:
             let maxValue = monthlySessionsData.map { $0.base + $0.extra }.max() ?? 0
+            return max(maxValue, Constants.defaultPeriodInMinutes)
+        case .halfYear:
+            let maxValue = halfYearSessionsData.map { $0.base + $0.extra }.max() ?? 0
             return max(maxValue, Constants.defaultPeriodInMinutes)
         case .year:
             let maxValue = yearlySessionsData.map { $0.base + $0.extra }.max() ?? 0
@@ -118,6 +125,26 @@ class SessionChartViewModel {
         return weekStarts
     }
     
+    private var halfYearXAxisRange: [Date] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        // Start of current month - используем тот же подход что и в year
+        let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
+        guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
+        
+        // Create 6 months, starting from the current one and going backwards
+        var monthStarts: [Date] = []
+        
+        for i in 0..<6 {
+            if let monthStart = calendar.date(byAdding: .month, value: -i, to: startOfCurrentMonth) {
+                monthStarts.append(monthStart)
+            }
+        }
+        
+        return monthStarts.sorted()
+    }
+    
     // Labels for the Y-axis
     
     private var yearAxisRange: [Date] {
@@ -143,18 +170,53 @@ class SessionChartViewModel {
 
 extension SessionChartViewModel {
     
+    
+    var xAxisLabelFormat: Date.FormatStyle {
+        switch selectedPeriod {
+        case .day:
+            return .dateTime.hour(.defaultDigits(amPM: .abbreviated))
+        case .month:
+            return .dateTime.day()
+        case .halfYear:
+            return .dateTime.month(.abbreviated)
+        case .year:
+            return .dateTime.month(.narrow)
+        default:
+            return .dateTime.weekday(.abbreviated)
+        }
+    }
+    
+    func barColor(for activityType: AggregatedData.ActivityType) -> Color {
+        switch activityType {
+        case .sitting: return .red
+        case .exercising: return .green
+        }
+    }
+    
+    func calculateBarPosition(for data: AggregatedData) -> Date {
+        let centerDate = centerDate(for: data.date)
+        let timeOffset: TimeInterval = data.activityType == .sitting ?
+            -dynamicTimeOffset : dynamicTimeOffset
+        return centerDate.addingTimeInterval(timeOffset)
+    }
+    
     func centerDate(for date: Date) -> Date {
         let calendar = Calendar.current
-        let halfOfMonth = 15
         let halfOfDay = 12
+        let halfOfMonth = 15
+        let halfOfWeek = 3.5
         
         switch selectedPeriod {
-        case .year:
-            return calendar.date(byAdding: .day, value: halfOfMonth, to: date) ?? date
+            
         case .week:
             return calendar.date(bySettingHour: halfOfDay, minute: 0, second: 0, of: date) ?? date
+            
+
+        case .year:
+            return calendar.date(byAdding: .day, value: halfOfMonth, to: date) ?? date
+            
         default:
-            // day / 3 days/ 1 month
+            // day / 3 days/ 1 month/ 6 months
             return date
         }
     }
@@ -164,18 +226,28 @@ extension SessionChartViewModel {
         let quarterOfMonth: Double = 7.5
         let hoursPerDay: Double = 24
         
+        //        let halfDayOffset: TimeInterval = 12 * 3600 // 12 часов
+        
         switch selectedPeriod {
         case .week:
             return hourOffset * 4
+            
         case .month:
             return hourOffset * 6
+            //        case .halfYear:
+            //               return halfDayOffset
+            
+        case .halfYear:
+            // Смещение на полнедели (3.5 дня) для визуального разделения
+            return 3.5 * 24 * 3600 // 3.5 дня в секундах
+            
         case .year:
             return hourOffset * hoursPerDay * quarterOfMonth
         default: // day / 3 days / 1 month
             return 0
         }
     }
-
+    
     var dynamicBarWidth: Double {
         switch selectedPeriod {
         case .day, .threeDays:
@@ -183,7 +255,7 @@ extension SessionChartViewModel {
             return calculateBarWidth(for: sessionCount)
         case .week:
             return Constants.defaultBarWidth
-        case .month:
+        case .month, .halfYear:
             return Constants.minBarWidth
         case .year:
             return Constants.defaultBarWidth / 1.2
@@ -279,7 +351,7 @@ extension SessionChartViewModel {
             ]
         }
     }
- 
+    
     var monthlySessionsData: [AggregatedData] {
         let calendar = Calendar.current
         let thirtyDaysAgo = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: Date()))!
@@ -363,22 +435,61 @@ extension SessionChartViewModel {
             ]
         }.sorted { $0.date < $1.date }
     }
-}
-
-extension SessionChartViewModel {
-    var xAxisLabelFormat: Date.FormatStyle {
-        switch selectedPeriod {
-        case .day:
-            return .dateTime.hour(.defaultDigits(amPM: .abbreviated))
-        case .month:
-            return .dateTime.day()
-        case .year:
-            return .dateTime.month(.narrow)
-        default:
-            return .dateTime.weekday(.abbreviated)
+    
+    var halfYearSessionsData: [AggregatedData] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        // Start of current month
+        let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
+        guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
+        
+        // 6 months ago from start of current month
+        let sixMonthsAgo = calendar.date(byAdding: .month, value: -5, to: startOfCurrentMonth)!
+        
+        // Grouping sessions by week
+        let groupedByWeek = Dictionary(grouping: sessionsData) { session in
+            let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: session.sittingDate))!
+            return weekStart
+        }
+        
+        // Create an array of all weeks for the last 6 months
+        var allWeeks: [Date] = []
+        var currentWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: sixMonthsAgo))!
+        
+        while currentWeek <= today {
+            allWeeks.append(currentWeek)
+            currentWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeek)!
+        }
+        
+        // For each week we create AggregatedData
+        return allWeeks.flatMap { weekStart in
+            let sessions = groupedByWeek[weekStart] ?? []
+            let sittingBaseTotal = sessions.reduce(0) { $0 + $1.sittingBase }
+            let sittingOvertimeTotal = sessions.reduce(0) { $0 + $1.sittingOvertime }
+            let exercisingBaseTotal = sessions.reduce(0) { $0 + $1.exercisingBase }
+            let exercisingExtraTotal = sessions.reduce(0) { $0 + $1.exercisingExtra }
+            
+            return [
+                AggregatedData(
+                    date: weekStart,
+                    activityType: .sitting,
+                    base: sittingBaseTotal,
+                    extra: sittingOvertimeTotal
+                ),
+                AggregatedData(
+                    date: weekStart,
+                    activityType: .exercising,
+                    base: exercisingBaseTotal,
+                    extra: exercisingExtraTotal
+                )
+            ]
         }
     }
 }
+
+
+
 
 // Temporary extension need to delete
 
@@ -392,6 +503,7 @@ extension SessionChartViewModel {
         case .week: data = weeklySessionsData
         case .month: data = monthlySessionsData
         case .year: data = yearlySessionsData
+        case .halfYear: data = halfYearSessionsData
         }
         
         return data
@@ -407,6 +519,7 @@ extension SessionChartViewModel {
         case .week: data = weeklySessionsData
         case .month: data = monthlySessionsData
         case .year: data = yearlySessionsData
+        case .halfYear: data = halfYearSessionsData
         }
         
         return data
