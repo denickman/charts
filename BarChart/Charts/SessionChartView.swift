@@ -54,7 +54,9 @@ struct SessionChartView: View {
             .chartYAxis {
                 yAxis
             }
-            .chartXScale(range: .plotDimension(padding: 10))
+//            .chartXScale(range: .plotDimension(padding: 10))
+            .chartXScale(domain: viewModel.xAxisDomain, range: .plotDimension(padding: 5))
+
             .chartYScale(domain: 0...(viewModel.maxYValue * 1.1))
             .chartPlotStyle { plotContent in
                 plotContent

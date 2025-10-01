@@ -16,14 +16,14 @@ func createDate(dayOffset: Int, hour: Int) -> Date {
 
 let testSessionsData: [SessionData] = [
 
-    .init(
-        sittingDate: createDate(dayOffset: -30, hour: 10),
-        exercisingDate: createDate(dayOffset: -30, hour: 11),
-        sittingBase: 30,
-        sittingOvertime: 10,
-        exercisingBase: 10,
-        exercisingExtra: 10
-    ),
+//    .init(
+//        sittingDate: createDate(dayOffset: -30, hour: 10),
+//        exercisingDate: createDate(dayOffset: -30, hour: 11),
+//        sittingBase: 30,
+//        sittingOvertime: 10,
+//        exercisingBase: 10,
+//        exercisingExtra: 10
+//    ),
     
 //        .init(
 //            sittingDate: createDate(dayOffset: -30, hour: 12),

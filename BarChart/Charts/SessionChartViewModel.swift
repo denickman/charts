@@ -527,3 +527,50 @@ extension SessionChartViewModel {
             .reduce(0) { $0 + $1.base + $1.extra }
     }
 }
+
+
+extension SessionChartViewModel {
+    
+    var xAxisDomain: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        switch selectedPeriod {
+        case .day:
+            let startOfDay = calendar.startOfDay(for: now)
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+            return startOfDay...endOfDay
+            
+        case .threeDays:
+            let start = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: now))!
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
+            return start...end
+            
+        case .week:
+            let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now))!
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
+            return start...end
+            
+        case .month:
+            let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: now))!
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
+            return start...end
+            
+        case .halfYear:
+            guard let start = halfYearXAxisRange.first,
+                  let end = halfYearXAxisRange.last else {
+                return now...calendar.date(byAdding: .month, value: 1, to: now)!
+            }
+            let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
+            return start...endWithPadding
+            
+        case .year:
+            guard let start = yearAxisRange.first,
+                  let end = yearAxisRange.last else {
+                return now...calendar.date(byAdding: .year, value: 1, to: now)!
+            }
+            let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
+            return start...endWithPadding
+        }
+    }
+}
