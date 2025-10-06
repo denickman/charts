@@ -87,45 +87,72 @@ let testSessionsData: [SessionData] = [
         ),
     
         .init(
-            sittingDate: createDate(dayOffset: 0, hour: 14),
-            exercisingDate: createDate(dayOffset: 0, hour: 15),
+            sittingDate: createDate(dayOffset: -1, hour: 12),
+            exercisingDate: createDate(dayOffset: -1, hour: 13),
             sittingBase: 30,
-            sittingOvertime: 10,
+            sittingOvertime: 30,
             exercisingBase: 10,
             exercisingExtra: 10
         ),
     
         .init(
-            sittingDate: createDate(dayOffset: 0, hour: 16),
-            exercisingDate: createDate(dayOffset: 0, hour: 17),
+            sittingDate: createDate(dayOffset: -1, hour: 14),
+            exercisingDate: createDate(dayOffset: -1, hour: 15),
             sittingBase: 30,
-            sittingOvertime: 10,
+            sittingOvertime: 30,
             exercisingBase: 10,
             exercisingExtra: 10
         ),
     
         .init(
-            sittingDate: createDate(dayOffset: 0, hour: 18),
-            exercisingDate: createDate(dayOffset: 0, hour: 19),
+            sittingDate: createDate(dayOffset: -1, hour: 16),
+            exercisingDate: createDate(dayOffset: -1, hour: 17),
             sittingBase: 30,
-            sittingOvertime: 10,
+            sittingOvertime: 30,
             exercisingBase: 10,
             exercisingExtra: 10
         ),
     
+//        .init(
+//            sittingDate: createDate(dayOffset: 0, hour: 0),
+//            exercisingDate: createDate(dayOffset: 0, hour: 1),
+//            sittingBase: 30,
+//            sittingOvertime: 20,
+//            exercisingBase: 10,
+//            exercisingExtra: 10
+//        ),
+//    
+//        .init(
+//            sittingDate: createDate(dayOffset: 0, hour: 2),
+//            exercisingDate: createDate(dayOffset: 0, hour: 3),
+//            sittingBase: 30,
+//            sittingOvertime: 20,
+//            exercisingBase: 10,
+//            exercisingExtra: 10
+//        ),
+//    
+//        .init(
+//            sittingDate: createDate(dayOffset: 0, hour: 6),
+//            exercisingDate: createDate(dayOffset: 0, hour: 7),
+//            sittingBase: 30,
+//            sittingOvertime: 20,
+//            exercisingBase: 10,
+//            exercisingExtra: 10
+//        ),
+    
         .init(
-            sittingDate: createDate(dayOffset: 0, hour: 20),
-            exercisingDate: createDate(dayOffset: 0, hour: 21),
-            sittingBase: 30,
+            sittingDate: createDate(dayOffset: 0, hour: 9),
+            exercisingDate: createDate(dayOffset: 0, hour: 10),
+            sittingBase: 20,
             sittingOvertime: 10,
             exercisingBase: 10,
             exercisingExtra: 10
         ),
-    
+  
         .init(
-            sittingDate: createDate(dayOffset: 0, hour: 22),
-            exercisingDate: createDate(dayOffset: 0, hour: 23),
-            sittingBase: 30,
+            sittingDate: createDate(dayOffset: 0, hour: 11),
+            exercisingDate: createDate(dayOffset: 0, hour: 12),
+            sittingBase: 20,
             sittingOvertime: 10,
             exercisingBase: 10,
             exercisingExtra: 10

@@ -15,57 +15,65 @@ struct SessionChartView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            Picker("Period", selection: $viewModel.selectedPeriod) {
-                ForEach(SessionChartViewModel.ChartPeriod.allCases, id: \.self) {
-                    Text($0.rawValue).tag($0)
-                }
+            periodPicker
+            totalsView
+            chartView
+        }
+    }
+    
+    private var periodPicker: some View {
+        Picker("Period", selection: $viewModel.selectedPeriod) {
+            ForEach(SessionChartViewModel.ChartPeriod.allCases, id: \.self) {
+                Text($0.rawValue).tag($0)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+    }
+    
+    private var totalsView: some View {
+        VStack {
+            Text("Total sitting: \(Int(viewModel.totalSitting)) min")
+            Text("Total exercising: \(Int(viewModel.totalExercising)) min")
+        }
+        .font(.headline)
+    }
+    
+    private var chartView: some View {
+        Chart {
+            chartContent
+        }
+        .chartXAxis {
+            xAxis
+        }
+        .chartYAxis {
+            yAxis
+        }
+        .chartXScale(domain: viewModel.xAxisDomain, range: .plotDimension(padding: 5))
+        
+        .chartYScale(domain: 0...(viewModel.maxYValue * 1.1))
+        .chartPlotStyle { plotContent in
+            plotContent
+                .background(Color.yellow.opacity(0.1))
+                .border(.black, width: 1)
+        }
+        .frame(height: 300)
+        .padding()
+        .animation(.easeInOut(duration: 0.25), value: viewModel.selectedPeriod)
+    }
+    
+    @ChartContentBuilder
+    private var chartContent: some ChartContent {
+        switch viewModel.chartData {
+        case .sessionData(let sessions):
+            ForEach(sessions) { session in
+                createSessionBar(session: session)
+            }
             
-            VStack {
-                Text("Total sitting: \(Int(viewModel.totalSitting)) min")
-                Text("Total exercising: \(Int(viewModel.totalExercising)) min")
+        case .aggregatedData(let aggregated):
+            ForEach(aggregated) { dataPoint in
+                createAggregatedBar(data: dataPoint)
             }
-            .font(.headline)
-            
-            Chart {
-                switch viewModel.selectedPeriod {
-                case .day, .threeDays:
-                    ForEach(viewModel.dailySessionsData) { session in
-                        createSessionBar(session: session)
-                    }
-                    
-                case .week, .month, .halfYear, .year:
-                    ForEach(viewModel.selectedPeriod == .week ?
-                                  viewModel.weeklySessionsData :
-                                  viewModel.selectedPeriod == .month ?
-                                  viewModel.monthlySessionsData :
-                                  viewModel.selectedPeriod == .halfYear ?
-                                  viewModel.halfYearSessionsData :
-                                  viewModel.yearlySessionsData) { data in
-                              createAggregatedBar(data: data)
-                          }
-                }
-            }
-            .chartXAxis {
-                xAxis
-            }
-            .chartYAxis {
-                yAxis
-            }
-//            .chartXScale(range: .plotDimension(padding: 10))
-            .chartXScale(domain: viewModel.xAxisDomain, range: .plotDimension(padding: 5))
-
-            .chartYScale(domain: 0...(viewModel.maxYValue * 1.1))
-            .chartPlotStyle { plotContent in
-                plotContent
-                    .background(Color.yellow.opacity(0.1))
-                    .border(.black, width: 1)
-            }
-            .frame(height: 300)
-            .padding()
-            .animation(.easeInOut(duration: 0.25), value: viewModel.selectedPeriod)
         }
     }
     
@@ -78,16 +86,16 @@ struct SessionChartView: View {
     }
     
     private var yAxis: some AxisContent {
-          AxisMarks(values: .stride(by: viewModel.yAxisStep)) { value in
-              AxisGridLine()
-              AxisTick()
-              AxisValueLabel {
-                  if let doubleValue = value.as(Double.self) {
-                      Text("\(Int(doubleValue))")
-                  }
-              }
-          }
-      }
+        AxisMarks(values: .stride(by: viewModel.yAxisGridLineInterval)) { value in
+            AxisGridLine()
+            AxisTick()
+            AxisValueLabel {
+                if let doubleValue = value.as(Double.self) {
+                    Text("\(Int(doubleValue))")
+                }
+            }
+        }
+    }
     
     @ChartContentBuilder
     private func createSessionBar(session: SessionData) -> some ChartContent {
@@ -100,14 +108,14 @@ struct SessionChartView: View {
         )
         
         createBar(
-            xValue: session.exercisingDate, 
+            xValue: session.exercisingDate,
             base: session.exercisingBase,
             extra: session.exercisingExtra,
             extraColor: viewModel.barColor(for: .exercising),
             width: viewModel.dynamicBarWidth
         )
     }
-
+    
     @ChartContentBuilder
     private func createAggregatedBar(data: AggregatedData) -> some ChartContent {
         let adjustedDate = viewModel.calculateBarPosition(for: data)
@@ -137,7 +145,6 @@ struct SessionChartView: View {
             x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", xValue),
             y: .value("Minutes", base),
             width: .fixed(width)
-            
         )
         .foregroundStyle(baseColor.opacity(0.8))
         .clipShape(.rect(cornerRadius: .zero))
