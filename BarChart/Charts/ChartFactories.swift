@@ -13,6 +13,7 @@ struct AxisStrategyFactory {
         case .day: return DayXAxisStrategy()
         case .threeDays: return ThreeDaysXAxisStrategy()
         case .week: return WeekXAxisStrategy()
+        case .halfMonth: return HalfMonthXAxisStrategy()
         case .month: return MonthXAxisStrategy()
         case .halfYear: return HalfYearXAxisStrategy()
         case .year: return YearXAxisStrategy()
@@ -29,6 +30,7 @@ struct DataAggregationStrategyFactory {
         case .month: return MonthDataAggregationStrategy()
         case .halfYear: return HalfYearDataAggregationStrategy()
         case .year: return YearDataAggregationStrategy()
+        case .halfMonth: return HalfMonthDataAggregationStrategy()
         }
     }
 }

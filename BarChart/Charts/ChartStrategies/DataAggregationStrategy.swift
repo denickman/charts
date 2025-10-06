@@ -126,6 +126,17 @@ class WeekDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrat
     }
 }
 
+// MARK: - 15 Days Aggregation
+class HalfMonthDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
+    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
+        let today = calendar.startOfDay(for: Date())
+        let fifteenDaysAgo = calendar.date(byAdding: .day, value: SessionChartViewModel.Constants.DateOffsets.halfOfMonth, to: today)!
+        
+        let dateRange = fifteenDaysAgo...today
+        return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
+    }
+}
+
 // MARK: - Month Aggregation
 class MonthDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {

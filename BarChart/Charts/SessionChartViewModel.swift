@@ -50,6 +50,7 @@ class SessionChartViewModel {
         enum DateOffsets {
             static let threeDays: Int = -2
             static let week: Int = -6
+            static let halfOfMonth: Int = -14
             static let month: Int = -29
             static let halfYearMonth: Int = -5
             static let dayCenterHour: Int = 12
@@ -72,15 +73,18 @@ class SessionChartViewModel {
         }
     }
     
-    enum ChartPeriod: String, CaseIterable {
-        case day = "1"
-        case threeDays = "3"
-        case week = "7"
-        case month = "30"
-        case halfYear = "180"
-        case year = "365"
+    enum ChartPeriod: Int, CaseIterable, Identifiable {
+        case day = 1
+        case threeDays = 3
+        case week = 7
+        case halfMonth = 15
+        case month = 30
+        case halfYear = 180
+        case year = 365
+        
+        var id: Int { rawValue } 
     }
- 
+
     var selectedPeriod: ChartPeriod = .day
     
     // MARK: - Computed Properties
@@ -89,7 +93,7 @@ class SessionChartViewModel {
         switch selectedPeriod {
         case .day, .threeDays:
             return .sessionData(filteredData)
-        case .week, .month, .halfYear, .year:
+        case .week, .halfMonth, .month, .halfYear, .year:
             return .aggregatedData(aggregatedData)
         }
     }
@@ -100,6 +104,7 @@ class SessionChartViewModel {
     }
     
     // TODO: - Temporary
+    
     var filteredData: [SessionData] {
         switch selectedPeriod {
         case .day:

@@ -24,7 +24,7 @@ struct SessionChartView: View {
     private var periodPicker: some View {
         Picker("Period", selection: $viewModel.selectedPeriod) {
             ForEach(SessionChartViewModel.ChartPeriod.allCases, id: \.self) {
-                Text($0.rawValue).tag($0)
+                Text("\($0.rawValue)").tag($0)
             }
         }
         .pickerStyle(.segmented)

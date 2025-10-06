@@ -114,6 +114,46 @@ class WeekXAxisStrategy: BaseAxisStrategy {
     }
 }
 
+// MARK: - 15 Days
+class HalfMonthXAxisStrategy: BaseAxisStrategy {
+    override var xAxisValues: [Date] {
+        let today = calendar.startOfDay(for: Date())
+        let fifteenDaysAgo = calendar.date(
+            byAdding: .day,
+            value: -14, // 15 days including today
+            to: today
+        )!
+        
+        // TODO: - Check it
+        return (0..<15).compactMap { dayOffset in
+            let date = calendar.date(byAdding: .day, value: dayOffset, to: fifteenDaysAgo)!
+            return dayOffset % 3 == 0 ? date : nil // Each 3 days
+        }
+    }
+    
+    override var xAxisDomain: ClosedRange<Date> {
+        let today = calendar.startOfDay(for: Date())
+        let fifteenDaysAgo = calendar.date(byAdding: .day, value: -14, to: today)!
+        return fifteenDaysAgo...today
+    }
+    
+    override var xAxisLabelFormat: Date.FormatStyle {
+        .dateTime.day().month(.abbreviated)
+    }
+    
+    override func centerDate(for date: Date) -> Date {
+        calendar.date(bySettingHour: SessionChartViewModel.Constants.DateOffsets.dayCenterHour, minute: 0, second: 0, of: date) ?? date
+    }
+    
+    override var dynamicTimeOffset: TimeInterval {
+        SessionChartViewModel.Constants.Time.secondsInHour * 4
+    }
+    
+    override var dynamicBarWidth: Double {
+        SessionChartViewModel.Constants.minBarWidth
+    }
+}
+
 // MARK: - 1 Month
 class MonthXAxisStrategy: BaseAxisStrategy {
     override var xAxisValues: [Date] {
