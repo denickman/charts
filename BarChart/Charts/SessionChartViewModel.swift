@@ -5,7 +5,6 @@
 //  Created by Denis Yaremenko on 29.09.2025.
 //
 
-import Foundation
 import SwiftUI
 
 @Observable
@@ -16,6 +15,55 @@ class SessionChartViewModel {
         static let minBarWidth: CGFloat = 4.0
         static let maxBarWidth: CGFloat = 16.0
         static let defaultPeriodInMinutes: Double = 60.0
+        
+        enum Time {
+            static let secondsInHour: TimeInterval = 3600
+            static let minutesInHour: Double = 60.0
+            static let hoursInDay: Double = 24.0
+            static let daysInWeek: Double = 7.0
+            static let daysInMonth: Int = 30
+            static let monthsInHalfYear: Int = 6
+            static let monthsInYear: Int = 12
+        }
+        
+        enum BarWidth {
+            static let lowDataThreshold: Int = 8
+            static let mediumDataThreshold: Int = 16
+            static let yearWidthMultiplier: Double = 1.2
+        }
+        
+        enum YAxis {
+            static let stepSmall: Double = 10
+            static let stepMedium: Double = 15
+            static let stepLarge: Double = 30
+            static let maxMultiplier: Double = 1.1
+        }
+        
+        enum DateOffsets {
+            static let threeDays: Int = -2
+            static let week: Int = -6
+            static let month: Int = -29
+            static let halfYearMonth: Int = -5
+            static let yearMonthStart: Int = -11
+            
+            static let dayCenterHour: Int = 12
+            static let yearCenterDays: Int = 15
+            static let yearTimeOffsetDays: Double = 7.5
+        }
+        
+        enum TimeOffsets {
+            static let weekHours: Double = 4
+            static let monthHours: Double = 6
+            static let halfYearDays: Int = 1
+        }
+        
+        enum DataRanges {
+            static let dayHours: [Int] = [0, 6, 12, 18]
+            static let threeDaysRange: ClosedRange<Int> = -2...0
+            static let weekRange: ClosedRange<Int> = -6...0
+            static let monthWeeks: Int = 5
+            static let weekDaysInterval: Int = 7
+        }
     }
     
     enum ChartPeriod: String, CaseIterable {
@@ -48,15 +96,15 @@ class SessionChartViewModel {
     }
 
     var yAxisStep: Double {
-        let maxValue = maxYValue * 1.1
-        let oneHour: Double = 60.0
+        let maxValue = maxYValue * Constants.YAxis.maxMultiplier
+        let oneHour = Constants.Time.minutesInHour
         
         if maxValue <= oneHour {
-            return 10 //0, 15, 30, 45, 60
+            return Constants.YAxis.stepSmall
         } else if maxValue <= oneHour * 2 {
-            return 15 // 0, 30, 60, 90, 120
+            return Constants.YAxis.stepMedium
         } else if maxValue <= oneHour * 4 {
-            return 30 // 0, 60, 120, 180, 240
+            return Constants.YAxis.stepLarge
         } else {
             let roughStep = maxValue / 4
             let roundedStep = (roughStep / oneHour).rounded() * oneHour
@@ -91,30 +139,35 @@ class SessionChartViewModel {
         let calendar = Calendar.current
         let today = Date()
         let components = calendar.dateComponents([.year, .month, .day], from: today)
-        return [0, 6, 12, 18].compactMap { calendar.date(bySettingHour: $0, minute: 0, second: 0, of: calendar.date(from: components)!) }
+        return Constants.DataRanges.dayHours.compactMap {
+            calendar.date(bySettingHour: $0, minute: 0, second: 0, of: calendar.date(from: components)!)
+        }
     }
     
     private var threeDaysXAxisRange: [Date] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        return (-2...0).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+        return Constants.DataRanges.threeDaysRange.compactMap {
+            calendar.date(byAdding: .day, value: $0, to: today)
+        }
     }
     
     private var weekDateXAxisRange: [Date] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        return (-6...0).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+        return Constants.DataRanges.weekRange.compactMap {
+            calendar.date(byAdding: .day, value: $0, to: today)
+        }
     }
     
     private var monthXAxisRange: [Date] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let thirtyDaysAgo = calendar.date(byAdding: .day, value: -29, to: today)!
+        let thirtyDaysAgo = calendar.date(byAdding: .day, value: Constants.DateOffsets.month, to: today)!
         
-        // Create tags for each week (approximately every 7 days)
         var weekStarts: [Date] = []
-        for i in 0..<5 { // 5 weeks max
-            let daysOffset = i * 7
+        for i in 0..<Constants.DataRanges.monthWeeks {
+            let daysOffset = i * Constants.DataRanges.weekDaysInterval
             let weekStart = calendar.date(byAdding: .day, value: daysOffset, to: thirtyDaysAgo)!
             if weekStart <= today {
                 weekStarts.append(weekStart)
@@ -128,14 +181,12 @@ class SessionChartViewModel {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        // Start of current month
         let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
         guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
         
-        // Create 6 months, starting from the current one and going backwards
         var monthStarts: [Date] = []
         
-        for i in 0..<6 {
+        for i in 0..<Constants.Time.monthsInHalfYear {
             if let monthStart = calendar.date(byAdding: .month, value: -i, to: startOfCurrentMonth) {
                 monthStarts.append(monthStart)
             }
@@ -144,20 +195,16 @@ class SessionChartViewModel {
         return monthStarts.sorted()
     }
     
-    // Labels for the Y-axis
-    
     private var yearAxisRange: [Date] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        // Start of current month
         let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
         guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
         
-        // Create 12 months, starting from the current one and going backwards
         var monthStarts: [Date] = []
         
-        for i in 0..<12 {
+        for i in 0..<Constants.Time.monthsInYear {
             if let monthStart = calendar.date(byAdding: .month, value: -i, to: startOfCurrentMonth) {
                 monthStarts.append(monthStart)
             }
@@ -168,7 +215,6 @@ class SessionChartViewModel {
 }
 
 extension SessionChartViewModel {
-    
     
     var xAxisLabelFormat: Date.FormatStyle {
         switch selectedPeriod {
@@ -201,34 +247,31 @@ extension SessionChartViewModel {
     
     func centerDate(for date: Date) -> Date {
         let calendar = Calendar.current
-        let halfOfDay = 12
-        let halfOfWeek = 3.5
         
         switch selectedPeriod {
         case .week:
-            return calendar.date(bySettingHour: halfOfDay, minute: 0, second: 0, of: date) ?? date
+            return calendar.date(bySettingHour: Constants.DateOffsets.dayCenterHour, minute: 0, second: 0, of: date) ?? date
         case .year:
-            return calendar.date(byAdding: .day, value: 15, to: date) ?? date
+            return calendar.date(byAdding: .day, value: Constants.DateOffsets.yearCenterDays, to: date) ?? date
         case .halfYear:
-            return calendar.date(byAdding: .day, value: Int(halfOfWeek), to: date) ?? date
+            return calendar.date(byAdding: .day, value: Int(Constants.Time.daysInWeek / 2), to: date) ?? date
         default:
             return date
         }
     }
     
     var dynamicTimeOffset: TimeInterval {
-        let hourOffset: TimeInterval = 3600
-        let hoursPerDay: Double = 24
+        let hourOffset = Constants.Time.secondsInHour
         
         switch selectedPeriod {
         case .week:
-            return hourOffset * 4
+            return hourOffset * Constants.TimeOffsets.weekHours
         case .month:
-            return hourOffset * 6
+            return hourOffset * Constants.TimeOffsets.monthHours
         case .halfYear:
-            return 24 * 3600
+            return Double(Constants.TimeOffsets.halfYearDays) * Constants.Time.secondsInHour * Constants.Time.hoursInDay
         case .year:
-            return hourOffset * hoursPerDay * 7.5 // 7.5 дней
+            return hourOffset * Constants.Time.hoursInDay * Constants.DateOffsets.yearTimeOffsetDays
         default:
             return 0
         }
@@ -244,7 +287,7 @@ extension SessionChartViewModel {
         case .month, .halfYear, .threeDays:
             return Constants.minBarWidth
         case .year:
-            return Constants.defaultBarWidth / 1.2
+            return Constants.defaultBarWidth / Constants.BarWidth.yearWidthMultiplier
         }
     }
     
@@ -253,16 +296,15 @@ extension SessionChartViewModel {
         let maxWidth = Constants.maxBarWidth
         let baseWidth = Constants.defaultBarWidth
         
-        let lowDataRange = 0...8      // Little data - maximum width
-        let mediumDataRange = 9...16  // Medium amount - reduce width
-        let highDataRange = 17...     // Lots of data - minimum width
+        let lowDataRange = 0...Constants.BarWidth.lowDataThreshold
+        let mediumDataRange = (Constants.BarWidth.lowDataThreshold + 1)...Constants.BarWidth.mediumDataThreshold
+        let highDataRange = (Constants.BarWidth.mediumDataThreshold + 1)...Int.max
         
         switch dataCount {
         case lowDataRange:
             return maxWidth
             
         case mediumDataRange:
-            // Linearly decrease the width from baseWidth to minWidth
             let positionInRange = Double(dataCount - mediumDataRange.lowerBound)
             let totalRangeLength = Double(mediumDataRange.count)
             let widthRange = baseWidth - minWidth
@@ -288,7 +330,7 @@ extension SessionChartViewModel {
         if selectedPeriod == .day {
             return sessionsData.filter { calendar.isDate($0.sittingDate, inSameDayAs: today) }
         } else if selectedPeriod == .threeDays {
-            let threeDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
+            let threeDaysAgo = calendar.date(byAdding: .day, value: Constants.DateOffsets.threeDays, to: today)!
             return sessionsData.filter { session in
                 let sessionDate = calendar.startOfDay(for: session.sittingDate)
                 return sessionDate >= threeDaysAgo && sessionDate <= today
@@ -301,7 +343,7 @@ extension SessionChartViewModel {
     var weeklySessionsData: [AggregatedData] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let weekStart = calendar.date(byAdding: .day, value: -6, to: today)!
+        let weekStart = calendar.date(byAdding: .day, value: Constants.DateOffsets.week, to: today)!
         
         var allDays: [Date] = []
         var currentDate = weekStart
@@ -340,13 +382,12 @@ extension SessionChartViewModel {
     
     var monthlySessionsData: [AggregatedData] {
         let calendar = Calendar.current
-        let thirtyDaysAgo = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: Date()))!
+        let thirtyDaysAgo = calendar.date(byAdding: .day, value: Constants.DateOffsets.month, to: calendar.startOfDay(for: Date()))!
         
         let groupedSessions = Dictionary(grouping: sessionsData) { session in
             calendar.startOfDay(for: session.sittingDate)
         }
         
-        // Create an array of all days in the last 30 days
         var allDays: [Date] = []
         var currentDate = thirtyDaysAgo
         while currentDate <= Date() {
@@ -354,7 +395,6 @@ extension SessionChartViewModel {
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
         }
         
-        // For each day we create AggregatedData
         return allDays.flatMap { date in
             let sessions = groupedSessions[date] ?? []
             let sittingBaseTotal = sessions.reduce(0) { $0 + $1.sittingBase }
@@ -387,7 +427,7 @@ extension SessionChartViewModel {
         guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
         
         var displayMonths: [Date] = []
-        for i in 0..<12 {
+        for i in 0..<Constants.Time.monthsInYear {
             if let monthStart = calendar.date(byAdding: .month, value: -i, to: startOfCurrentMonth) {
                 displayMonths.append(monthStart)
             }
@@ -426,12 +466,10 @@ extension SessionChartViewModel {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        // 6 months ago from the beginning of the current month
         let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
         guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
-        let sixMonthsAgo = calendar.date(byAdding: .month, value: -5, to: startOfCurrentMonth)!
+        let sixMonthsAgo = calendar.date(byAdding: .month, value: Constants.DateOffsets.halfYearMonth, to: startOfCurrentMonth)!
         
-        // Start of week for 6 months ago
         let sixMonthsAgoWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: sixMonthsAgo))!
         
         var allWeeks: [Date] = []
@@ -442,13 +480,11 @@ extension SessionChartViewModel {
             currentWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeek)!
         }
         
-        // Grouping sessions by week
         let groupedByWeek = Dictionary(grouping: sessionsData) { session in
             let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: session.sittingDate))!
             return weekStart
         }
         
-        // Create AggregatedData for each week
         return allWeeks.flatMap { weekStart in
             let sessions = groupedByWeek[weekStart] ?? []
             let sittingBaseTotal = sessions.reduce(0) { $0 + $1.sittingBase }
@@ -487,17 +523,17 @@ extension SessionChartViewModel {
             return startOfDay...endOfDay
             
         case .threeDays:
-            let start = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: now))!
+            let start = calendar.date(byAdding: .day, value: Constants.DateOffsets.threeDays, to: calendar.startOfDay(for: now))!
             let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
             return start...end
             
         case .week:
-            let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now))!
+            let start = calendar.date(byAdding: .day, value: Constants.DateOffsets.week, to: calendar.startOfDay(for: now))!
             let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
             return start...end
             
         case .month:
-            let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: now))!
+            let start = calendar.date(byAdding: .day, value: Constants.DateOffsets.month, to: calendar.startOfDay(for: now))!
             let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
             return start...end
             
@@ -506,8 +542,7 @@ extension SessionChartViewModel {
                      let end = halfYearXAxisRange.last else {
                    return now...calendar.date(byAdding: .month, value: 1, to: now)!
                }
-               // For weekly aggregation, we expand the domain to accommodate all weeks.
-               let startWithPadding = calendar.date(byAdding: .day, value: -7, to: start)!
+               let startWithPadding = calendar.date(byAdding: .day, value: -Constants.DataRanges.weekDaysInterval, to: start)!
                let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
                return startWithPadding...endWithPadding
             
@@ -521,8 +556,6 @@ extension SessionChartViewModel {
         }
     }
 }
-
-
 
 // Temporary extension need to delete
 
