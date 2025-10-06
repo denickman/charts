@@ -7,22 +7,33 @@
 
 import Foundation
 
+// MARK: - Base Protocols
 protocol DataAggregationStrategy {
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData]
 }
 
-// MARK: - Day
-
-class DayDataAggregationStrategy: DataAggregationStrategy {
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let filteredSessions = sessions.filter { calendar.isDate($0.sittingDate, inSameDayAs: today) }
-        
-        return createMaxAggregatedData(from: filteredSessions)
+// MARK: - Base Aggregation Strategy
+class BaseAggregationStrategy {
+    let calendar = Calendar.current
+    
+    func createAggregatedData(for sessions: [SessionData], date: Date) -> [AggregatedData] {
+        [
+            AggregatedData(
+                date: date,
+                activityType: .sitting,
+                base: sessions.reduce(0) { $0 + $1.sittingBase },
+                extra: sessions.reduce(0) { $0 + $1.sittingOvertime }
+            ),
+            AggregatedData(
+                date: date,
+                activityType: .exercising,
+                base: sessions.reduce(0) { $0 + $1.exercisingBase },
+                extra: sessions.reduce(0) { $0 + $1.exercisingExtra }
+            )
+        ]
     }
     
-    private func createMaxAggregatedData(from sessions: [SessionData]) -> [AggregatedData] {
+    func createMaxAggregatedData(for sessions: [SessionData], date: Date) -> [AggregatedData] {
         let maxSittingSession = sessions.max(by: {
             ($0.sittingBase + $0.sittingOvertime) < ($1.sittingBase + $1.sittingOvertime)
         })
@@ -33,226 +44,142 @@ class DayDataAggregationStrategy: DataAggregationStrategy {
         
         return [
             AggregatedData(
-                date: Date(),
+                date: date,
                 activityType: .sitting,
                 base: maxSittingSession?.sittingBase ?? 0,
                 extra: maxSittingSession?.sittingOvertime ?? 0
             ),
             AggregatedData(
-                date: Date(),
+                date: date,
                 activityType: .exercising,
                 base: maxExercisingSession?.exercisingBase ?? 0,
                 extra: maxExercisingSession?.exercisingExtra ?? 0
             )
         ]
     }
-}
-
-// MARK: - Three Days
-class ThreeDaysDataAggregationStrategy: DataAggregationStrategy {
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let threeDaysAgo = calendar.date(byAdding: .day, value: SessionChartViewModel.Constants.DateOffsets.threeDays, to: today)!
-        
-        let filteredSessions = sessions.filter { session in
-            let sessionDate = calendar.startOfDay(for: session.sittingDate)
-            return sessionDate >= threeDaysAgo && sessionDate <= today
+    
+    func aggregateByDay(sessions: [SessionData], includeAllDays: Bool = false, dateRange: ClosedRange<Date>? = nil) -> [AggregatedData] {
+        let groupedSessions = Dictionary(grouping: sessions) { session in
+            calendar.startOfDay(for: session.sittingDate)
         }
         
-        return createDailyMaxAggregatedData(from: filteredSessions)
+        let dates: [Date]
+        if includeAllDays, let range = dateRange {
+            dates = generateDateRange(from: range.lowerBound, to: range.upperBound)
+        } else {
+            dates = Array(groupedSessions.keys).sorted()
+        }
+        
+        return dates.flatMap { date in
+            let dailySessions = groupedSessions[date] ?? []
+            return createMaxAggregatedData(for: dailySessions, date: date)
+        }
     }
     
-    private func createDailyMaxAggregatedData(from sessions: [SessionData]) -> [AggregatedData] {
-        let calendar = Calendar.current
-        let groupedSessions = Dictionary(grouping: sessions) { session in
-            calendar.startOfDay(for: session.sittingDate)
-        }
-        
-        return groupedSessions.flatMap { (date, dailySessions) in
-            let maxSittingSession = dailySessions.max(by: {
-                ($0.sittingBase + $0.sittingOvertime) < ($1.sittingBase + $1.sittingOvertime)
-            })
-            
-            let maxExercisingSession = dailySessions.max(by: {
-                ($0.exercisingBase + $0.exercisingExtra) < ($1.exercisingBase + $1.exercisingExtra)
-            })
-            
-            return [
-                AggregatedData(
-                    date: date,
-                    activityType: .sitting,
-                    base: maxSittingSession?.sittingBase ?? 0,
-                    extra: maxSittingSession?.sittingOvertime ?? 0
-                ),
-                AggregatedData(
-                    date: date,
-                    activityType: .exercising,
-                    base: maxExercisingSession?.exercisingBase ?? 0,
-                    extra: maxExercisingSession?.exercisingExtra ?? 0
-                )
-            ]
-        }.sorted { $0.date < $1.date }
-    }
-}
-
-// MARK: - One Week
-class WeekDataAggregationStrategy: DataAggregationStrategy {
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let weekStart = calendar.date(byAdding: .day, value: SessionChartViewModel.Constants.DateOffsets.week, to: today)!
-        
-        var allDays: [Date] = []
-        var currentDate = weekStart
-        while currentDate <= today {
-            allDays.append(currentDate)
+    private func generateDateRange(from startDate: Date, to endDate: Date) -> [Date] {
+        var dates: [Date] = []
+        var currentDate = startDate
+        while currentDate <= endDate {
+            dates.append(currentDate)
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
         }
-        
-        let groupedSessions = Dictionary(grouping: sessions) { session in
-            calendar.startOfDay(for: session.sittingDate)
-        }
-        
-        return allDays.flatMap { date in
-            let sessions = groupedSessions[date] ?? []
-            return [
-                AggregatedData(
-                    date: date,
-                    activityType: .sitting,
-                    base: sessions.reduce(0) { $0 + $1.sittingBase },
-                    extra: sessions.reduce(0) { $0 + $1.sittingOvertime }
-                ),
-                AggregatedData(
-                    date: date,
-                    activityType: .exercising,
-                    base: sessions.reduce(0) { $0 + $1.exercisingBase },
-                    extra: sessions.reduce(0) { $0 + $1.exercisingExtra }
-                )
-            ]
-        }
+        return dates
     }
 }
 
-// MARK: - One Month
-class MonthDataAggregationStrategy: DataAggregationStrategy {
+// MARK: - Day Aggregation
+class DayDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let calendar = Calendar.current
-        let thirtyDaysAgo = calendar.date(byAdding: .day, value: SessionChartViewModel.Constants.DateOffsets.month, to: calendar.startOfDay(for: Date()))!
-        
-        let groupedSessions = Dictionary(grouping: sessions) { session in
-            calendar.startOfDay(for: session.sittingDate)
-        }
-        
-        var allDays: [Date] = []
-        var currentDate = thirtyDaysAgo
-        while currentDate <= Date() {
-            allDays.append(currentDate)
-            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
-        }
-        
-        return allDays.flatMap { date in
-            let sessions = groupedSessions[date] ?? []
-            return [
-                AggregatedData(
-                    date: date,
-                    activityType: .sitting,
-                    base: sessions.reduce(0) { $0 + $1.sittingBase },
-                    extra: sessions.reduce(0) { $0 + $1.sittingOvertime }
-                ),
-                AggregatedData(
-                    date: date,
-                    activityType: .exercising,
-                    base: sessions.reduce(0) { $0 + $1.exercisingBase },
-                    extra: sessions.reduce(0) { $0 + $1.exercisingExtra }
-                )
-            ]
-        }
-    }
-}
-
-// MARK: - Half Year
-class HalfYearDataAggregationStrategy: DataAggregationStrategy {
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        
-        let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
-        guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
-        let sixMonthsAgo = calendar.date(byAdding: .month, value: SessionChartViewModel.Constants.DateOffsets.halfYearMonth, to: startOfCurrentMonth)!
-        
-        let sixMonthsAgoWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: sixMonthsAgo))!
-        
-        var allWeeks: [Date] = []
-        var currentWeek = sixMonthsAgoWeekStart
-        
-        while currentWeek <= today {
-            allWeeks.append(currentWeek)
-            currentWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeek)!
-        }
-        
-        let groupedByWeek = Dictionary(grouping: sessions) { session in
-            let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: session.sittingDate))!
-            return weekStart
-        }
-        
-        return allWeeks.flatMap { weekStart in
-            let sessions = groupedByWeek[weekStart] ?? []
-            return [
-                AggregatedData(
-                    date: weekStart,
-                    activityType: .sitting,
-                    base: sessions.reduce(0) { $0 + $1.sittingBase },
-                    extra: sessions.reduce(0) { $0 + $1.sittingOvertime }
-                ),
-                AggregatedData(
-                    date: weekStart,
-                    activityType: .exercising,
-                    base: sessions.reduce(0) { $0 + $1.exercisingBase },
-                    extra: sessions.reduce(0) { $0 + $1.exercisingExtra }
-                )
-            ]
-        }
+        let filteredSessions = sessions.filter { calendar.isDate($0.sittingDate, inSameDayAs: today) }
+        return createMaxAggregatedData(for: filteredSessions, date: today)
     }
 }
 
-// MARK: - One Year
-class YearDataAggregationStrategy: DataAggregationStrategy {
+// MARK: - Three Days Aggregation
+class ThreeDaysDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+        let threeDaysAgo = calendar.date(
+            byAdding: .day,
+            value: SessionChartViewModel.Constants.DateOffsets.threeDays,
+            to: today
+        )!
         
-        let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
-        guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
+        let dateRange = threeDaysAgo...today
+        return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
+    }
+}
+
+// MARK: - Week Aggregation
+class WeekDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
+    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
+        let today = calendar.startOfDay(for: Date())
+        let weekStart = calendar.date(
+            byAdding: .day,
+            value: SessionChartViewModel.Constants.DateOffsets.week,
+            to: today
+        )!
         
-        var displayMonths: [Date] = []
-        for i in 0..<SessionChartViewModel.Constants.Time.monthsInYear {
-            if let monthStart = calendar.date(byAdding: .month, value: -i, to: startOfCurrentMonth) {
-                displayMonths.append(monthStart)
-            }
-        }
+        let dateRange = weekStart...today
+        return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
+    }
+}
+
+// MARK: - Month Aggregation
+class MonthDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
+    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
+        let thirtyDaysAgo = calendar.date(
+            byAdding: .day,
+            value: SessionChartViewModel.Constants.DateOffsets.month,
+            to: calendar.startOfDay(for: Date())
+        )!
         
+        let dateRange = thirtyDaysAgo...Date()
+        return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
+    }
+}
+
+// MARK: - Period-based Aggregation
+class PeriodBasedAggregationStrategy: BaseAggregationStrategy {
+    let periodComponent: Calendar.Component
+    let periodValue: Int
+    
+    init(periodComponent: Calendar.Component, periodValue: Int) {
+        self.periodComponent = periodComponent
+        self.periodValue = periodValue
+    }
+    
+    func aggregateByPeriod(sessions: [SessionData]) -> [AggregatedData] {
         let groupedSessions = Dictionary(grouping: sessions) { session in
-            let components = calendar.dateComponents([.year, .month], from: session.sittingDate)
+            let components = calendar.dateComponents([.year, periodComponent], from: session.sittingDate)
             return calendar.date(from: components)!
         }
         
-        return displayMonths.flatMap { monthStart in
-            let sessions = groupedSessions[monthStart] ?? []
-            return [
-                AggregatedData(
-                    date: monthStart,
-                    activityType: .sitting,
-                    base: sessions.reduce(0) { $0 + $1.sittingBase },
-                    extra: sessions.reduce(0) { $0 + $1.sittingOvertime }
-                ),
-                AggregatedData(
-                    date: monthStart,
-                    activityType: .exercising,
-                    base: sessions.reduce(0) { $0 + $1.exercisingBase },
-                    extra: sessions.reduce(0) { $0 + $1.exercisingExtra }
-                )
-            ]
+        return groupedSessions.flatMap { (periodStart, periodSessions) in
+            createAggregatedData(for: periodSessions, date: periodStart)
         }.sorted { $0.date < $1.date }
+    }
+}
+
+// MARK: - Half Year Aggregation
+class HalfYearDataAggregationStrategy: PeriodBasedAggregationStrategy, DataAggregationStrategy {
+    init() {
+        super.init(periodComponent: .weekOfYear, periodValue: SessionChartViewModel.Constants.DateOffsets.halfYearMonth)
+    }
+    
+    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
+        return aggregateByPeriod(sessions: sessions)
+    }
+}
+
+// MARK: - Year Aggregation
+class YearDataAggregationStrategy: PeriodBasedAggregationStrategy, DataAggregationStrategy {
+    init() {
+        super.init(periodComponent: .month, periodValue: SessionChartViewModel.Constants.Time.monthsInYear)
+    }
+    
+    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
+        return aggregateByPeriod(sessions: sessions)
     }
 }

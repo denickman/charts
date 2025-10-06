@@ -171,8 +171,8 @@ class SessionChartViewModel {
     
     private let sessionsData: [SessionData] = testSessionsData
     
-    private var currentAxisStrategy: ChartXAxisStrategy {
-        AxisXStrategyFactory.create(for: selectedPeriod)
+    private var currentAxisStrategy: ChartAxisStrategy {
+        AxisStrategyFactory.create(for: selectedPeriod)
     }
     
     // MARK: - Methods
