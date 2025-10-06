@@ -29,7 +29,7 @@ class SessionChartViewModel {
     
     var selectedPeriod: ChartPeriod = .day
     let sessionsData: [SessionData] = testSessionsData
-    
+
     var xAxisValues: [Date] {
         switch selectedPeriod {
         case .day:
@@ -46,8 +46,7 @@ class SessionChartViewModel {
             return yearAxisRange
         }
     }
-    
-    
+
     var yAxisStep: Double {
         let maxValue = maxYValue * 1.1
         let oneHour: Double = 60.0
@@ -129,7 +128,7 @@ class SessionChartViewModel {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        // Start of current month - используем тот же подход что и в year
+        // Start of current month
         let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
         guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
         
@@ -203,59 +202,46 @@ extension SessionChartViewModel {
     func centerDate(for date: Date) -> Date {
         let calendar = Calendar.current
         let halfOfDay = 12
-        let halfOfMonth = 15
         let halfOfWeek = 3.5
         
         switch selectedPeriod {
-            
         case .week:
             return calendar.date(bySettingHour: halfOfDay, minute: 0, second: 0, of: date) ?? date
-            
-
         case .year:
-            return calendar.date(byAdding: .day, value: halfOfMonth, to: date) ?? date
-            
+            return calendar.date(byAdding: .day, value: 15, to: date) ?? date
+        case .halfYear:
+            return calendar.date(byAdding: .day, value: Int(halfOfWeek), to: date) ?? date
         default:
-            // day / 3 days/ 1 month/ 6 months
             return date
         }
     }
     
     var dynamicTimeOffset: TimeInterval {
         let hourOffset: TimeInterval = 3600
-        let quarterOfMonth: Double = 7.5
         let hoursPerDay: Double = 24
-        
-        //        let halfDayOffset: TimeInterval = 12 * 3600 // 12 часов
         
         switch selectedPeriod {
         case .week:
             return hourOffset * 4
-            
         case .month:
             return hourOffset * 6
-            //        case .halfYear:
-            //               return halfDayOffset
-            
         case .halfYear:
-            // Смещение на полнедели (3.5 дня) для визуального разделения
-            return 3.5 * 24 * 3600 // 3.5 дня в секундах
-            
+            return 24 * 3600
         case .year:
-            return hourOffset * hoursPerDay * quarterOfMonth
-        default: // day / 3 days / 1 month
+            return hourOffset * hoursPerDay * 7.5 // 7.5 дней
+        default:
             return 0
         }
     }
     
     var dynamicBarWidth: Double {
         switch selectedPeriod {
-        case .day, .threeDays:
+        case .day:
             let sessionCount = dailySessionsData.count * 2 // 2 phases in each session
             return calculateBarWidth(for: sessionCount)
         case .week:
             return Constants.defaultBarWidth
-        case .month, .halfYear:
+        case .month, .halfYear, .threeDays:
             return Constants.minBarWidth
         case .year:
             return Constants.defaultBarWidth / 1.2
@@ -267,9 +253,9 @@ extension SessionChartViewModel {
         let maxWidth = Constants.maxBarWidth
         let baseWidth = Constants.defaultBarWidth
         
-        let lowDataRange = 0...5      // Little data - maximum width
-        let mediumDataRange = 6...10  // Medium amount - reduce width
-        let highDataRange = 11...     // Lots of data - minimum width
+        let lowDataRange = 0...8      // Little data - maximum width
+        let mediumDataRange = 9...16  // Medium amount - reduce width
+        let highDataRange = 17...     // Lots of data - minimum width
         
         switch dataCount {
         case lowDataRange:
@@ -440,12 +426,21 @@ extension SessionChartViewModel {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        // Start of current month
+        // 6 months ago from the beginning of the current month
         let currentMonthComponents = calendar.dateComponents([.year, .month], from: today)
         guard let startOfCurrentMonth = calendar.date(from: currentMonthComponents) else { return [] }
-        
-        // 6 months ago from start of current month
         let sixMonthsAgo = calendar.date(byAdding: .month, value: -5, to: startOfCurrentMonth)!
+        
+        // Start of week for 6 months ago
+        let sixMonthsAgoWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: sixMonthsAgo))!
+        
+        var allWeeks: [Date] = []
+        var currentWeek = sixMonthsAgoWeekStart
+        
+        while currentWeek <= today {
+            allWeeks.append(currentWeek)
+            currentWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeek)!
+        }
         
         // Grouping sessions by week
         let groupedByWeek = Dictionary(grouping: sessionsData) { session in
@@ -453,16 +448,7 @@ extension SessionChartViewModel {
             return weekStart
         }
         
-        // Create an array of all weeks for the last 6 months
-        var allWeeks: [Date] = []
-        var currentWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: sixMonthsAgo))!
-        
-        while currentWeek <= today {
-            allWeeks.append(currentWeek)
-            currentWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeek)!
-        }
-        
-        // For each week we create AggregatedData
+        // Create AggregatedData for each week
         return allWeeks.flatMap { weekStart in
             let sessions = groupedByWeek[weekStart] ?? []
             let sittingBaseTotal = sessions.reduce(0) { $0 + $1.sittingBase }
@@ -488,6 +474,53 @@ extension SessionChartViewModel {
     }
 }
 
+extension SessionChartViewModel {
+    
+    var xAxisDomain: ClosedRange<Date> {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        switch selectedPeriod {
+        case .day:
+            let startOfDay = calendar.startOfDay(for: now)
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+            return startOfDay...endOfDay
+            
+        case .threeDays:
+            let start = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: now))!
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
+            return start...end
+            
+        case .week:
+            let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now))!
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
+            return start...end
+            
+        case .month:
+            let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: now))!
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
+            return start...end
+            
+        case .halfYear:
+               guard let start = halfYearXAxisRange.first,
+                     let end = halfYearXAxisRange.last else {
+                   return now...calendar.date(byAdding: .month, value: 1, to: now)!
+               }
+               // For weekly aggregation, we expand the domain to accommodate all weeks.
+               let startWithPadding = calendar.date(byAdding: .day, value: -7, to: start)!
+               let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
+               return startWithPadding...endWithPadding
+            
+        case .year:
+            guard let start = yearAxisRange.first,
+                  let end = yearAxisRange.last else {
+                return now...calendar.date(byAdding: .year, value: 1, to: now)!
+            }
+            let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
+            return start...endWithPadding
+        }
+    }
+}
 
 
 
@@ -528,49 +561,3 @@ extension SessionChartViewModel {
     }
 }
 
-
-extension SessionChartViewModel {
-    
-    var xAxisDomain: ClosedRange<Date> {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        switch selectedPeriod {
-        case .day:
-            let startOfDay = calendar.startOfDay(for: now)
-            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-            return startOfDay...endOfDay
-            
-        case .threeDays:
-            let start = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: now))!
-            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
-            return start...end
-            
-        case .week:
-            let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now))!
-            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
-            return start...end
-            
-        case .month:
-            let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: now))!
-            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))!
-            return start...end
-            
-        case .halfYear:
-            guard let start = halfYearXAxisRange.first,
-                  let end = halfYearXAxisRange.last else {
-                return now...calendar.date(byAdding: .month, value: 1, to: now)!
-            }
-            let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
-            return start...endWithPadding
-            
-        case .year:
-            guard let start = yearAxisRange.first,
-                  let end = yearAxisRange.last else {
-                return now...calendar.date(byAdding: .year, value: 1, to: now)!
-            }
-            let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
-            return start...endWithPadding
-        }
-    }
-}
