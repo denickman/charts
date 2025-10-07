@@ -10,9 +10,8 @@ import SwiftUI
 import Charts
 
 struct SessionChartView: View {
-    
     @State private var viewModel = SessionChartViewModel()
-    
+
     var body: some View {
         VStack(spacing: 16) {
             periodPicker
@@ -20,7 +19,7 @@ struct SessionChartView: View {
             chartView
         }
     }
-    
+
     private var periodPicker: some View {
         Picker("Period", selection: $viewModel.selectedPeriod) {
             ForEach(SessionChartViewModel.ChartPeriod.allCases, id: \.self) {
@@ -30,7 +29,7 @@ struct SessionChartView: View {
         .pickerStyle(.segmented)
         .padding(.horizontal)
     }
-    
+
     private var totalsView: some View {
         VStack {
             Text("Total sitting: \(Int(viewModel.totalSitting)) min")
@@ -38,20 +37,48 @@ struct SessionChartView: View {
         }
         .font(.headline)
     }
-    
+
     private var chartView: some View {
         Chart {
-            chartContent
+            ForEach(viewModel.chartBars) { bar in
+                BarMark(
+                    x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", bar.xValue),
+                    y: .value("Minutes", bar.baseHeight),
+                    width: .fixed(bar.width)
+                )
+                .foregroundStyle(bar.baseColor)
+                .clipShape(.rect(cornerRadius: .zero))
+
+                BarMark(
+                    x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", bar.xValue),
+                    yStart: .value("Base", bar.baseHeight),
+                    yEnd: .value("Top", bar.baseHeight + bar.extraHeight),
+                    width: .fixed(bar.width)
+                )
+                .foregroundStyle(bar.extraColor)
+                .clipShape(.rect(cornerRadius: .zero))
+            }
         }
         .chartXAxis {
-            xAxis
+            AxisMarks(values: viewModel.xAxisValues) { value in
+                AxisValueLabel(format: viewModel.xAxisLabelFormat)
+                AxisTick()
+                AxisGridLine()
+            }
         }
         .chartYAxis {
-            yAxis
+            AxisMarks(values: .stride(by: viewModel.yAxisGridLineInterval)) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let doubleValue = value.as(Double.self) {
+                        Text("\(Int(doubleValue))")
+                    }
+                }
+            }
         }
         .chartXScale(domain: viewModel.xAxisDomain, range: .plotDimension(padding: 5))
-        
-        .chartYScale(domain: 0...(viewModel.maxYValue * 1.1))
+        .chartYScale(domain: viewModel.chartYScaleDomain)
         .chartPlotStyle { plotContent in
             plotContent
                 .background(Color.yellow.opacity(0.1))
@@ -61,106 +88,7 @@ struct SessionChartView: View {
         .padding()
         .animation(.easeInOut(duration: 0.25), value: viewModel.selectedPeriod)
     }
-    
-    @ChartContentBuilder
-    private var chartContent: some ChartContent {
-        switch viewModel.chartData {
-        case .sessionData(let sessions):
-            ForEach(sessions) { session in
-                createSessionBar(session: session)
-            }
-            
-        case .aggregatedData(let aggregated):
-            ForEach(aggregated) { dataPoint in
-                createAggregatedBar(data: dataPoint)
-            }
-        }
-    }
-    
-    private var xAxis: some AxisContent {
-        AxisMarks(values: viewModel.xAxisValues) { value in
-            AxisValueLabel(format: viewModel.xAxisLabelFormat)
-            AxisTick()
-            AxisGridLine()
-        }
-    }
-    
-    private var yAxis: some AxisContent {
-        AxisMarks(values: .stride(by: viewModel.yAxisGridLineInterval)) { value in
-            AxisGridLine()
-            AxisTick()
-            AxisValueLabel {
-                if let doubleValue = value.as(Double.self) {
-                    Text("\(Int(doubleValue))")
-                }
-            }
-        }
-    }
-    
-    @ChartContentBuilder
-    private func createSessionBar(session: SessionData) -> some ChartContent {
-        createBar(
-            xValue: session.sittingDate,
-            base: session.sittingBase,
-            extra: session.sittingOvertime,
-            extraColor: viewModel.barColor(for: .sitting),
-            width: viewModel.dynamicBarWidth
-        )
-        
-        createBar(
-            xValue: session.exercisingDate,
-            base: session.exercisingBase,
-            extra: session.exercisingExtra,
-            extraColor: viewModel.barColor(for: .exercising),
-            width: viewModel.dynamicBarWidth
-        )
-    }
-    
-    @ChartContentBuilder
-    private func createAggregatedBar(data: AggregatedData) -> some ChartContent {
-        let adjustedDate = viewModel.calculateBarPosition(for: data)
-        let extraColor = viewModel.barColor(for: data.activityType)
-        
-        createBar(
-            xValue: adjustedDate,
-            base: data.base,
-            extra: data.extra,
-            extraColor: extraColor,
-            width: viewModel.dynamicBarWidth
-        )
-    }
-    
-    @ChartContentBuilder
-    private func createBar(
-        xValue: Date,
-        base: Double,
-        extra: Double,
-        baseColor: Color = .gray,
-        extraColor: Color,
-        width: Double
-    ) -> some ChartContent {
-        
-        // Base part
-        BarMark(
-            x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", xValue),
-            y: .value("Minutes", base),
-            width: .fixed(width)
-        )
-        .foregroundStyle(baseColor.opacity(0.8))
-        .clipShape(.rect(cornerRadius: .zero))
-        
-        // Extra part
-        BarMark(
-            x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", xValue),
-            yStart: .value("Base", base),
-            yEnd: .value("Top", base + extra),
-            width: .fixed(width)
-        )
-        .foregroundStyle(extraColor.opacity(0.8))
-        .clipShape(.rect(cornerRadius: .zero))
-    }
 }
-
 
 #Preview {
     SessionChartView()

@@ -15,64 +15,6 @@ class SessionChartViewModel {
         case aggregatedData([AggregatedData])
     }
     
-    enum Constants {
-        static let defaultBarWidth: CGFloat = 14.0
-        static let minBarWidth: CGFloat = 4.0
-        static let maxBarWidth: CGFloat = 16.0
-        static let defaultPeriodInMinutes: Double = 60.0
-        
-        enum Time {
-            static let secondsInHour: TimeInterval = 3600
-            static let minutesInHour: Double = 60.0
-            static let hoursInDay: Double = 24.0
-            static let daysInWeek: Double = 7.0
-            static let monthsInHalfYear: Int = 6
-            static let monthsInYear: Int = 12
-        }
-        
-        enum BarWidth {
-            static let lowDataThreshold: Int = 8
-            static let mediumDataThreshold: Int = 16
-            static let yearWidthMultiplier: Double = 1.2
-        }
-        
-        enum YAxis {
-            static let maxMultiplier: Double = 1.1
-            static let denseGridStep: Double = 10
-            static let normalGridStep: Double = 15
-            static let sparseGridStep: Double = 30
-            
-            static let normalGridThreshold: Double = 2
-            static let sparseGridThreshold: Double = 4
-            static let autoCalculationDivisor: Double = 4
-        }
-        
-        enum DateOffsets {
-            static let threeDays: Int = -2
-            static let week: Int = -6
-            static let halfOfMonth: Int = -14
-            static let month: Int = -29
-            static let halfYearMonth: Int = -5
-            static let dayCenterHour: Int = 12
-            static let yearCenterDays: Int = 15
-            static let yearTimeOffsetDays: Double = 7.5
-        }
-        
-        enum TimeOffsets {
-            static let weekHours: Double = 4
-            static let monthHours: Double = 6
-            static let halfYearDays: Int = 1
-        }
-        
-        enum DataRanges {
-            static let dayHours: [Int] = [0, 6, 12, 18]
-            static let threeDaysRange: ClosedRange<Int> = -2...0
-            static let weekRange: ClosedRange<Int> = -6...0
-            static let monthWeeks: Int = 5
-            static let weekDaysInterval: Int = 7
-        }
-    }
-    
     enum ChartPeriod: Int, CaseIterable, Identifiable {
         case day = 1
         case threeDays = 3
@@ -82,13 +24,67 @@ class SessionChartViewModel {
         case halfYear = 180
         case year = 365
         
-        var id: Int { rawValue } 
+        var id: Int { rawValue }
     }
-
+    
+    struct ChartBar: Identifiable {
+        let id = UUID()
+        let xValue: Date
+        let baseHeight: Double
+        let extraHeight: Double
+        let baseColor: Color
+        let extraColor: Color
+        let width: Double
+    }
+    
+    var chartBars: [ChartBar] {
+        switch selectedPeriod {
+        case .day, .threeDays:
+            return filteredData.flatMap { session in
+                [
+                    createBar(for: session, type: .sitting),
+                    createBar(for: session, type: .exercising)
+                ]
+            }
+        default:
+            return aggregatedData.map { createBar(for: $0) }
+        }
+    }
+    
+    private func createBar(for session: SessionData, type: AggregatedData.ActivityType) -> ChartBar {
+        let (baseColor, extraColor) = barStyle(for: type, isExtra: true)
+        let xValue = type == .sitting ? session.sittingDate : session.exercisingDate
+        let baseHeight = type == .sitting ? session.sittingBase : session.exercisingBase
+        let extraHeight = type == .sitting ? session.sittingOvertime : session.exercisingExtra
+        
+        return ChartBar(
+            xValue: xValue,
+            baseHeight: baseHeight,
+            extraHeight: extraHeight,
+            baseColor: baseColor,
+            extraColor: extraColor,
+            width: dynamicBarWidth
+        )
+    }
+    
+    private func createBar(for data: AggregatedData) -> ChartBar {
+        let (baseColor, extraColor) = barStyle(for: data.activityType, isExtra: true)
+        let adjustedDate = calculateBarPosition(for: data)
+        
+        return ChartBar(
+            xValue: adjustedDate,
+            baseHeight: data.base,
+            extraHeight: data.extra,
+            baseColor: baseColor,
+            extraColor: extraColor,
+            width: dynamicBarWidth
+        )
+    }
+    
     var selectedPeriod: ChartPeriod = .day
     
     // MARK: - Computed Properties
-
+    
     var chartData: ChartData {
         switch selectedPeriod {
         case .day, .threeDays:
@@ -97,13 +93,11 @@ class SessionChartViewModel {
             return .aggregatedData(aggregatedData)
         }
     }
-
+    
     var aggregatedData: [AggregatedData] {
         let currentStrategy = DataAggregationStrategyFactory.create(for: selectedPeriod)
         return currentStrategy.getAggregateData(from: sessionsData)
     }
-    
-    // TODO: - Temporary
     
     var filteredData: [SessionData] {
         switch selectedPeriod {
@@ -118,6 +112,10 @@ class SessionChartViewModel {
     
     var xAxisValues: [Date] {
         currentAxisStrategy.xAxisValues
+    }
+    
+    var chartYScaleDomain: ClosedRange<Double> {
+        0...maxYValue
     }
     
     var xAxisDomain: ClosedRange<Date> {
@@ -139,17 +137,16 @@ class SessionChartViewModel {
     // MARK: - Y-axis Calculations
     
     var yAxisGridLineInterval: Double {
-        let maxValue = maxYValue * Constants.YAxis.maxMultiplier
-        let oneHour = Constants.Time.minutesInHour
+        let oneHour = ChartConfig.Time.minutesInHour
         
-        if maxValue <= oneHour {
-            return Constants.YAxis.denseGridStep
-        } else if maxValue <= oneHour * Constants.YAxis.normalGridThreshold {
-            return Constants.YAxis.normalGridStep
-        } else if maxValue <= oneHour * Constants.YAxis.sparseGridThreshold {
-            return Constants.YAxis.sparseGridStep
+        if maxYValue <= oneHour {
+            return ChartConfig.Axis.YAxis.denseGridStep
+        } else if maxYValue <= oneHour * ChartConfig.Axis.YAxis.normalGridThreshold {
+            return ChartConfig.Axis.YAxis.normalGridStep
+        } else if maxYValue <= oneHour * ChartConfig.Axis.YAxis.sparseGridThreshold {
+            return ChartConfig.Axis.YAxis.sparseGridStep
         } else {
-            let roughStep = maxValue / Constants.YAxis.autoCalculationDivisor
+            let roughStep = maxYValue / ChartConfig.Axis.YAxis.autoCalculationDivisor
             let roundedStep = (roughStep / oneHour).rounded() * oneHour
             return max(roundedStep, oneHour)
         }
@@ -157,10 +154,8 @@ class SessionChartViewModel {
     
     var maxYValue: Double {
         let maxValue = aggregatedData.map { $0.base + $0.extra }.max() ?? 0
-        return max(maxValue, Constants.defaultPeriodInMinutes)
+        return max(maxValue, ChartConfig.Axis.defaultPeriodInMinutes) * ChartConfig.Axis.YAxis.maxMultiplier
     }
-    
-    // TODO: - Temporary properties
     
     var totalSitting: Double {
         aggregatedData
@@ -185,14 +180,14 @@ class SessionChartViewModel {
     func calculateBarPosition(for data: AggregatedData) -> Date {
         let centerDate = centerDate(for: data.date)
         let timeOffset: TimeInterval = data.activityType == .sitting ?
-        -dynamicTimeOffset : dynamicTimeOffset
+            -dynamicTimeOffset : dynamicTimeOffset
         return centerDate.addingTimeInterval(timeOffset)
     }
     
     func barColor(for activityType: AggregatedData.ActivityType) -> Color {
         switch activityType {
-        case .sitting: return .red
-        case .exercising: return .green
+        case .sitting: return ChartConfig.Colors.sittingExtra
+        case .exercising: return ChartConfig.Colors.exercisingExtra
         }
     }
     
@@ -200,7 +195,15 @@ class SessionChartViewModel {
         currentAxisStrategy.centerDate(for: date)
     }
     
-    // TODO: - Temporary
+    func barStyle(for type: AggregatedData.ActivityType, isExtra: Bool) -> (base: Color, extra: Color) {
+        switch type {
+        case .sitting:
+            return (ChartConfig.Colors.sittingBase, ChartConfig.Colors.sittingExtra)
+        case .exercising:
+            return (ChartConfig.Colors.exercisingBase, ChartConfig.Colors.exercisingExtra)
+        }
+    }
+    
     private func filterSessionsForLastDays(_ days: Int) -> [SessionData] {
         let calendar = Calendar.current
         let now = Date()
@@ -209,5 +212,21 @@ class SessionChartViewModel {
         return sessionsData.filter { session in
             session.sittingDate >= startDate && session.sittingDate <= now
         }
+    }
+}
+
+extension SessionChartViewModel {
+    struct AxisConfiguration {
+        let values: [Date]
+        let labelFormat: Date.FormatStyle
+        let yAxisInterval: Double
+    }
+    
+    var axisConfiguration: AxisConfiguration {
+        AxisConfiguration(
+            values: xAxisValues,
+            labelFormat: xAxisLabelFormat,
+            yAxisInterval: yAxisGridLineInterval
+        )
     }
 }

@@ -27,7 +27,7 @@ class BaseAxisStrategy: ChartAxisStrategy {
     var xAxisDomain: ClosedRange<Date> { Date()...Date() }
     var xAxisLabelFormat: Date.FormatStyle { .dateTime }
     var dynamicTimeOffset: TimeInterval { 0 }
-    var dynamicBarWidth: Double { SessionChartViewModel.Constants.defaultBarWidth }
+    var dynamicBarWidth: Double { ChartConfig.Bar.defaultWidth }
     
     func centerDate(for date: Date) -> Date { date }
     
@@ -60,7 +60,7 @@ class BaseAxisStrategy: ChartAxisStrategy {
 // MARK: - One Day
 class DayXAxisStrategy: BaseAxisStrategy {
     override var xAxisValues: [Date] {
-        generateHourlyAxisValues(hours: SessionChartViewModel.Constants.DataRanges.dayHours)
+        generateHourlyAxisValues(hours: ChartConfig.DataRanges.dayHours)
     }
     
     override var xAxisDomain: ClosedRange<Date> {
@@ -75,11 +75,11 @@ class DayXAxisStrategy: BaseAxisStrategy {
 // MARK: - Three Days
 class ThreeDaysXAxisStrategy: BaseAxisStrategy {
     override var xAxisValues: [Date] {
-        generateDailyAxisValues(dayRange: SessionChartViewModel.Constants.DataRanges.threeDaysRange)
+        generateDailyAxisValues(dayRange: ChartConfig.DataRanges.threeDaysRange)
     }
     
     override var xAxisDomain: ClosedRange<Date> {
-        createDateRange(startOffset: SessionChartViewModel.Constants.DateOffsets.threeDays)
+        createDateRange(startOffset: ChartConfig.DateOffsets.threeDays)
     }
     
     override var xAxisLabelFormat: Date.FormatStyle {
@@ -87,18 +87,18 @@ class ThreeDaysXAxisStrategy: BaseAxisStrategy {
     }
     
     override var dynamicBarWidth: Double {
-        SessionChartViewModel.Constants.minBarWidth
+        ChartConfig.Bar.minWidth
     }
 }
 
 // MARK: - 1 Week
 class WeekXAxisStrategy: BaseAxisStrategy {
     override var xAxisValues: [Date] {
-        generateDailyAxisValues(dayRange: SessionChartViewModel.Constants.DataRanges.weekRange)
+        generateDailyAxisValues(dayRange: ChartConfig.DataRanges.weekRange)
     }
     
     override var xAxisDomain: ClosedRange<Date> {
-        createDateRange(startOffset: SessionChartViewModel.Constants.DateOffsets.week)
+        createDateRange(startOffset: ChartConfig.DateOffsets.week)
     }
     
     override var xAxisLabelFormat: Date.FormatStyle {
@@ -106,11 +106,11 @@ class WeekXAxisStrategy: BaseAxisStrategy {
     }
     
     override func centerDate(for date: Date) -> Date {
-        calendar.date(bySettingHour: SessionChartViewModel.Constants.DateOffsets.dayCenterHour, minute: 0, second: 0, of: date) ?? date
+        calendar.date(bySettingHour: ChartConfig.DateOffsets.dayCenterHour, minute: 0, second: 0, of: date) ?? date
     }
     
     override var dynamicTimeOffset: TimeInterval {
-        SessionChartViewModel.Constants.Time.secondsInHour * SessionChartViewModel.Constants.TimeOffsets.weekHours
+        ChartConfig.Time.secondsInHour * ChartConfig.TimeOffsets.weekHours
     }
 }
 
@@ -120,11 +120,10 @@ class HalfMonthXAxisStrategy: BaseAxisStrategy {
         let today = calendar.startOfDay(for: Date())
         let fifteenDaysAgo = calendar.date(
             byAdding: .day,
-            value: -14, // 15 days including today
+            value: ChartConfig.DateOffsets.halfOfMonth,
             to: today
         )!
         
-        // TODO: - Check it
         return (0..<15).compactMap { dayOffset in
             let date = calendar.date(byAdding: .day, value: dayOffset, to: fifteenDaysAgo)!
             return dayOffset % 3 == 0 ? date : nil // Each 3 days
@@ -133,7 +132,7 @@ class HalfMonthXAxisStrategy: BaseAxisStrategy {
     
     override var xAxisDomain: ClosedRange<Date> {
         let today = calendar.startOfDay(for: Date())
-        let fifteenDaysAgo = calendar.date(byAdding: .day, value: -14, to: today)!
+        let fifteenDaysAgo = calendar.date(byAdding: .day, value: ChartConfig.DateOffsets.halfOfMonth, to: today)!
         return fifteenDaysAgo...today
     }
     
@@ -142,15 +141,15 @@ class HalfMonthXAxisStrategy: BaseAxisStrategy {
     }
     
     override func centerDate(for date: Date) -> Date {
-        calendar.date(bySettingHour: SessionChartViewModel.Constants.DateOffsets.dayCenterHour, minute: 0, second: 0, of: date) ?? date
+        calendar.date(bySettingHour: ChartConfig.DateOffsets.dayCenterHour, minute: 0, second: 0, of: date) ?? date
     }
     
     override var dynamicTimeOffset: TimeInterval {
-        SessionChartViewModel.Constants.Time.secondsInHour * 4
+        ChartConfig.Time.secondsInHour * ChartConfig.TimeOffsets.weekHours
     }
     
     override var dynamicBarWidth: Double {
-        SessionChartViewModel.Constants.minBarWidth
+        ChartConfig.Bar.minWidth
     }
 }
 
@@ -160,19 +159,19 @@ class MonthXAxisStrategy: BaseAxisStrategy {
         let today = calendar.startOfDay(for: Date())
         let thirtyDaysAgo = calendar.date(
             byAdding: .day,
-            value: SessionChartViewModel.Constants.DateOffsets.month,
+            value: ChartConfig.DateOffsets.month,
             to: today
         )!
         
-        return (0..<SessionChartViewModel.Constants.DataRanges.monthWeeks).compactMap { weekIndex in
-            let daysOffset = weekIndex * SessionChartViewModel.Constants.DataRanges.weekDaysInterval
+        return (0..<ChartConfig.DataRanges.monthWeeks).compactMap { weekIndex in
+            let daysOffset = weekIndex * ChartConfig.DataRanges.weekDaysInterval
             let weekStart = calendar.date(byAdding: .day, value: daysOffset, to: thirtyDaysAgo)!
             return weekStart <= today ? weekStart : nil
         }
     }
     
     override var xAxisDomain: ClosedRange<Date> {
-        createDateRange(startOffset: SessionChartViewModel.Constants.DateOffsets.month)
+        createDateRange(startOffset: ChartConfig.DateOffsets.month)
     }
     
     override var xAxisLabelFormat: Date.FormatStyle {
@@ -180,11 +179,11 @@ class MonthXAxisStrategy: BaseAxisStrategy {
     }
     
     override var dynamicTimeOffset: TimeInterval {
-        SessionChartViewModel.Constants.Time.secondsInHour * SessionChartViewModel.Constants.TimeOffsets.monthHours
+        ChartConfig.Time.secondsInHour * ChartConfig.TimeOffsets.monthHours
     }
     
     override var dynamicBarWidth: Double {
-        SessionChartViewModel.Constants.minBarWidth
+        ChartConfig.Bar.minWidth
     }
 }
 
@@ -212,7 +211,7 @@ class MonthBasedAxisStrategy: BaseAxisStrategy {
 // MARK: - Half Year
 class HalfYearXAxisStrategy: MonthBasedAxisStrategy {
     init() {
-        super.init(monthsCount: SessionChartViewModel.Constants.Time.monthsInHalfYear)
+        super.init(monthsCount: ChartConfig.Time.monthsInHalfYear)
     }
     
     override var xAxisDomain: ClosedRange<Date> {
@@ -222,7 +221,7 @@ class HalfYearXAxisStrategy: MonthBasedAxisStrategy {
         
         let startWithPadding = calendar.date(
             byAdding: .day,
-            value: -SessionChartViewModel.Constants.DataRanges.weekDaysInterval,
+            value: -ChartConfig.DataRanges.weekDaysInterval,
             to: start
         )!
         let endWithPadding = calendar.date(byAdding: .month, value: 1, to: end)!
@@ -234,24 +233,24 @@ class HalfYearXAxisStrategy: MonthBasedAxisStrategy {
     }
     
     override func centerDate(for date: Date) -> Date {
-        calendar.date(byAdding: .day, value: Int(SessionChartViewModel.Constants.Time.daysInWeek / 2), to: date) ?? date
+        calendar.date(byAdding: .day, value: Int(ChartConfig.Time.daysInWeek / 2), to: date) ?? date
     }
     
     override var dynamicTimeOffset: TimeInterval {
-        Double(SessionChartViewModel.Constants.TimeOffsets.halfYearDays) *
-        SessionChartViewModel.Constants.Time.secondsInHour *
-        SessionChartViewModel.Constants.Time.hoursInDay
+        Double(ChartConfig.TimeOffsets.halfYearDays) *
+        ChartConfig.Time.secondsInHour *
+        ChartConfig.Time.hoursInDay
     }
     
     override var dynamicBarWidth: Double {
-        SessionChartViewModel.Constants.minBarWidth
+        ChartConfig.Bar.minWidth
     }
 }
 
 // MARK: - 1 Year
 class YearXAxisStrategy: MonthBasedAxisStrategy {
     init() {
-        super.init(monthsCount: SessionChartViewModel.Constants.Time.monthsInYear)
+        super.init(monthsCount: ChartConfig.Time.monthsInYear)
     }
     
     override var xAxisDomain: ClosedRange<Date> {
@@ -268,16 +267,16 @@ class YearXAxisStrategy: MonthBasedAxisStrategy {
     }
     
     override func centerDate(for date: Date) -> Date {
-        calendar.date(byAdding: .day, value: SessionChartViewModel.Constants.DateOffsets.yearCenterDays, to: date) ?? date
+        calendar.date(byAdding: .day, value: ChartConfig.DateOffsets.yearCenterDays, to: date) ?? date
     }
     
     override var dynamicTimeOffset: TimeInterval {
-        SessionChartViewModel.Constants.Time.secondsInHour *
-        SessionChartViewModel.Constants.Time.hoursInDay *
-        SessionChartViewModel.Constants.DateOffsets.yearTimeOffsetDays
+        ChartConfig.Time.secondsInHour *
+        ChartConfig.Time.hoursInDay *
+        ChartConfig.DateOffsets.yearTimeOffsetDays
     }
     
     override var dynamicBarWidth: Double {
-        SessionChartViewModel.Constants.defaultBarWidth / SessionChartViewModel.Constants.BarWidth.yearWidthMultiplier
+        ChartConfig.Bar.defaultWidth / ChartConfig.Bar.WidthAdjustments.yearWidthMultiplier
     }
 }

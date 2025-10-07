@@ -102,7 +102,7 @@ class ThreeDaysDataAggregationStrategy: BaseAggregationStrategy, DataAggregation
         let today = calendar.startOfDay(for: Date())
         let threeDaysAgo = calendar.date(
             byAdding: .day,
-            value: SessionChartViewModel.Constants.DateOffsets.threeDays,
+            value: ChartConfig.DateOffsets.threeDays,
             to: today
         )!
         
@@ -117,7 +117,7 @@ class WeekDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrat
         let today = calendar.startOfDay(for: Date())
         let weekStart = calendar.date(
             byAdding: .day,
-            value: SessionChartViewModel.Constants.DateOffsets.week,
+            value: ChartConfig.DateOffsets.week,
             to: today
         )!
         
@@ -130,7 +130,7 @@ class WeekDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrat
 class HalfMonthDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
         let today = calendar.startOfDay(for: Date())
-        let fifteenDaysAgo = calendar.date(byAdding: .day, value: SessionChartViewModel.Constants.DateOffsets.halfOfMonth, to: today)!
+        let fifteenDaysAgo = calendar.date(byAdding: .day, value: ChartConfig.DateOffsets.halfOfMonth, to: today)!
         
         let dateRange = fifteenDaysAgo...today
         return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
@@ -142,7 +142,7 @@ class MonthDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStra
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
         let thirtyDaysAgo = calendar.date(
             byAdding: .day,
-            value: SessionChartViewModel.Constants.DateOffsets.month,
+            value: ChartConfig.DateOffsets.halfOfMonth,
             to: calendar.startOfDay(for: Date())
         )!
         
@@ -176,7 +176,7 @@ class PeriodBasedAggregationStrategy: BaseAggregationStrategy {
 // MARK: - Half Year Aggregation
 class HalfYearDataAggregationStrategy: PeriodBasedAggregationStrategy, DataAggregationStrategy {
     init() {
-        super.init(periodComponent: .weekOfYear, periodValue: SessionChartViewModel.Constants.DateOffsets.halfYearMonth)
+        super.init(periodComponent: .weekOfYear, periodValue: ChartConfig.DateOffsets.halfYearMonth)
     }
     
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
@@ -187,7 +187,7 @@ class HalfYearDataAggregationStrategy: PeriodBasedAggregationStrategy, DataAggre
 // MARK: - Year Aggregation
 class YearDataAggregationStrategy: PeriodBasedAggregationStrategy, DataAggregationStrategy {
     init() {
-        super.init(periodComponent: .month, periodValue: SessionChartViewModel.Constants.Time.monthsInYear)
+        super.init(periodComponent: .month, periodValue: ChartConfig.Time.monthsInYear)
     }
     
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {

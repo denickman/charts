@@ -13,7 +13,7 @@ func createDate(dayOffset: Int, hour: Int) -> Date {
     return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: date)!
 }
 
-// year / half
+
 let testSessionsData: [SessionData] = [
 
     .init(
