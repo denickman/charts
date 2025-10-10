@@ -5,190 +5,141 @@
 //  Created by Denis Yaremenko on 29.09.2025.
 //
 
-//
-//  SessionChartViewModel.swift
-//  BarChart
-//
-//  Created by Denis Yaremenko on 29.09.2025.
-//
-
 import SwiftUI
 
 @Observable
 class SessionChartViewModel {
     
     enum ChartPeriod: Int, CaseIterable, Identifiable {
-        case day = 1
-        case threeDays = 3
+        case day = 1, threeDays = 3
         var id: Int { rawValue }
     }
     
     struct ChartBar: Identifiable {
         let id = UUID()
-        let mappedPositionDate: Date
-        let baseMinutes: Double
-        let extraMinutes: Double
-        let baseColor: Color
-        let extraColor: Color
+        let position: Date
+        let baseMinutes, extraMinutes: Double
+        let baseColor, extraColor: Color
         let width: Double
     }
     
     var selectedPeriod: ChartPeriod = .day {
-        didSet {
-            updateChartData()
-        }
+        didSet { updateChartData() }
     }
     
     var chartBars: [ChartBar] = []
-    var axisMarkCenters: [Date] = []  // Mapped centers for axis marks
-    var axisLabels: [String] = []  // Labels for axis marks
-    var xAxisDomain: ClosedRange<Date> = Date()...Date()
-    var yAxisDomain: ClosedRange<Double> = 0...0
-    var yAxisGridStep: Double = 0
-    var totalSittingMinutes: Double = 0
-    var totalExercisingMinutes: Double = 0
+    var axisCenters: [Date] = []
+    var axisLabels: [String] = []
+    var xAxisRange: ClosedRange<Date> = Date()...Date()
+    var yAxisRange: ClosedRange<Double> = 0...0
+    var yAxisStep: Double = 0
     
-    private var aggregatedData: [AggregatedData] = []
-    private var periodCenterDates: [Date] = []  // Unique actual center dates from aggregated data
     private let calendar = Calendar.current
-    private let sessions: [M_Session] = testSessionsData  // Or from real source
-    
-    private var barPositionOffset: TimeInterval { ChartConfig.secondsInHour * 0.5 }  // 30 min offset for side-by-side bars
+    private let sessions = testSessionsData
+    private let barOffset: TimeInterval = ChartConfig.secondsInHour * 0.5
     
     init() {
         updateChartData()
     }
     
     private func updateChartData() {
-        aggregatedData = computeAggregatedData()
-        periodCenterDates = Array(Set(aggregatedData.map { $0.periodCenterDate })).sorted()
+        let data = computeAggregatedData()
+        let centers = Array(Set(data.map { $0.periodCenterDate })).sorted()
         
         let baseDate = Date.distantPast
-        let periodSpacing: TimeInterval = selectedPeriod == .day
+        let spacing: TimeInterval = selectedPeriod == .day
             ? ChartConfig.secondsInHour * 3
             : ChartConfig.secondsInHour * ChartConfig.hoursInDay
         
-        let mappedCenters = periodCenterDates.indices.map {
-            baseDate.addingTimeInterval(Double($0) * periodSpacing)
+        axisCenters = centers.indices.map {
+            baseDate.addingTimeInterval(Double($0) * spacing)
         }
         
-        axisMarkCenters = mappedCenters
-        axisLabels = periodCenterDates.map { center in
-            if selectedPeriod == .day {
-                let startHour = calendar.component(.hour, from: center) - 1
-                return "\(startHour)-\(startHour + ChartConfig.segmentHours)"
-            }
-            return center.formatted(.dateTime.weekday(.abbreviated))
+        axisLabels = centers.map { center in
+            selectedPeriod == .day ? formatTimeRange(for: center) : formatWeekday(for: center)
         }
         
-        if let minCenter = mappedCenters.first, let maxCenter = mappedCenters.last {
-            let padding = barPositionOffset * 2
-            xAxisDomain = minCenter.addingTimeInterval(-padding)...maxCenter.addingTimeInterval(padding)
-        }
-        
-        yAxisDomain = 0...maxYAxisValue
-        yAxisGridStep = computeYAxisGridStep()
-        
-        totalSittingMinutes = aggregatedData
-            .filter { $0.activityType == .sitting }
-            .reduce(0) { $0 + $1.baseMinutes + $1.extraMinutes }
-        
-        totalExercisingMinutes = aggregatedData
-            .filter { $0.activityType == .exercising }
-            .reduce(0) { $0 + $1.baseMinutes + $1.extraMinutes }
-        
-        let numberOfBars = aggregatedData.count
-        let barWidth = ChartConfig.barWidth(for: numberOfBars)
-        chartBars = aggregatedData.map { createChartBar(for: $0, with: barWidth) }
+        setupAxisRanges(centers: axisCenters)
+        yAxisStep = computeGridStep()
+        chartBars = createBars(from: data, centers: centers)
     }
     
     private func computeAggregatedData() -> [AggregatedData] {
-        let filteredSessions = filterSessionsByPeriod()
-        switch selectedPeriod {
-        case .day:
-            return aggregateByTwoHourSegments(sessions: filteredSessions)
-        case .threeDays:
-            return aggregateByDays(sessions: filteredSessions)
-        }
+        let filtered = filterSessions()
+        return selectedPeriod == .day
+            ? aggregateBySegments(sessions: filtered)
+            : aggregateByDays(sessions: filtered)
     }
     
-    private func filterSessionsByPeriod() -> [M_Session] {
+    private func filterSessions() -> [M_Session] {
         let now = Date()
         let offset = selectedPeriod == .day ? 0 : ChartConfig.threeDaysOffset
-        let startDate = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now))!
-        return sessions.filter { $0.createdAt >= startDate && $0.createdAt <= now }
+        let start = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now))!
+        return sessions.filter { $0.createdAt >= start && $0.createdAt <= now }
     }
     
-    private func aggregateByTwoHourSegments(sessions: [M_Session]) -> [AggregatedData] {
-        let today = calendar.startOfDay(for: Date())
-        let grouped = Dictionary(grouping: sessions) { session in
-            let hour = calendar.component(.hour, from: session.createdAt)
-            return (hour / ChartConfig.segmentHours) * ChartConfig.segmentHours
-        }
+
+    
+    private func createDataEntries(for sessions: [M_Session], center: Date) -> [AggregatedData] {
+        let sittingBase = Double(sessions.reduce(0) { $0 + $1.sittingOverall })
+        let sittingExtra = Double(sessions.reduce(0) { $0 + $1.sittingOvertime })
+        let exercisingBase = Double(sessions.reduce(0) { $0 + $1.exercisingOverall })
+        let exercisingExtra = Double(sessions.reduce(0) { $0 + $1.exercisingOvertime })
         
-        var result: [AggregatedData] = []
-        for (segmentStartHour, segmentSessions) in grouped.sorted(by: { $0.key < $1.key }) {
-            let sittingBase = Double(segmentSessions.reduce(0) { $0 + $1.sittingOverall })
-            let sittingExtra = Double(segmentSessions.reduce(0) { $0 + $1.sittingOvertime })
-            let exercisingBase = Double(segmentSessions.reduce(0) { $0 + $1.exercisingOverall })
-            let exercisingExtra = Double(segmentSessions.reduce(0) { $0 + $1.exercisingOvertime })
-            
-            let segmentCenter = calendar.date(byAdding: .hour, value: segmentStartHour + 1, to: today)!
-            
-            if sittingBase + sittingExtra > 0 {
-                result.append(AggregatedData(periodCenterDate: segmentCenter, activityType: .sitting, baseMinutes: sittingBase, extraMinutes: sittingExtra))
-            }
-            if exercisingBase + exercisingExtra > 0 {
-                result.append(AggregatedData(periodCenterDate: segmentCenter, activityType: .exercising, baseMinutes: exercisingBase, extraMinutes: exercisingExtra))
-            }
+        var entries: [AggregatedData] = []
+        if sittingBase + sittingExtra > 0 {
+            entries.append(AggregatedData(
+                periodCenterDate: center,
+                activityType: .sitting,
+                baseMinutes: sittingBase,
+                extraMinutes: sittingExtra
+            ))
         }
-        return result
+        if exercisingBase + exercisingExtra > 0 {
+            entries.append(AggregatedData(
+                periodCenterDate: center,
+                activityType: .exercising,
+                baseMinutes: exercisingBase,
+                extraMinutes: exercisingExtra
+            ))
+        }
+        return entries
     }
     
-    private func aggregateByDays(sessions: [M_Session]) -> [AggregatedData] {
-        let grouped = Dictionary(grouping: sessions) { calendar.startOfDay(for: $0.createdAt) }
+    private func setupAxisRanges(centers: [Date]) {
+        guard let first = centers.first, let last = centers.last else { return }
+        let padding = barOffset * 2
+        xAxisRange = first.addingTimeInterval(-padding)...last.addingTimeInterval(padding)
+        yAxisRange = 0...maxYValue
+    }
+    
+    private func createBars(from data: [AggregatedData], centers: [Date]) -> [ChartBar] {
+        let width = ChartConfig.barWidth(for: data.count)
         
-        var result: [AggregatedData] = []
-        for (dayStart, daySessions) in grouped.sorted(by: { $0.key < $1.key }) {
-            let sittingBase = Double(daySessions.reduce(0) { $0 + $1.sittingOverall })
-            let sittingExtra = Double(daySessions.reduce(0) { $0 + $1.sittingOvertime })
-            let exercisingBase = Double(daySessions.reduce(0) { $0 + $1.exercisingOverall })
-            let exercisingExtra = Double(daySessions.reduce(0) { $0 + $1.exercisingOvertime })
+        return data.map { item in
+            let position = calculatePosition(for: item, centers: centers)
+            let colors = getColors(for: item.activityType)
             
-            let dayCenter = calendar.date(byAdding: .hour, value: ChartConfig.dayCenterHour, to: dayStart)!
-            
-            if sittingBase + sittingExtra > 0 {
-                result.append(AggregatedData(periodCenterDate: dayCenter, activityType: .sitting, baseMinutes: sittingBase, extraMinutes: sittingExtra))
-            }
-            if exercisingBase + exercisingExtra > 0 {
-                result.append(AggregatedData(periodCenterDate: dayCenter, activityType: .exercising, baseMinutes: exercisingBase, extraMinutes: exercisingExtra))
-            }
+            return ChartBar(
+                position: position,
+                baseMinutes: item.baseMinutes,
+                extraMinutes: item.extraMinutes,
+                baseColor: colors.base,
+                extraColor: colors.extra,
+                width: width
+            )
         }
-        return result
     }
     
-    private func mappedBarPosition(for data: AggregatedData) -> Date {
-        if let index = periodCenterDates.firstIndex(of: data.periodCenterDate) {
-            let mappedCenter = axisMarkCenters[index]
-            let offset: TimeInterval = data.activityType == .sitting ? -barPositionOffset : barPositionOffset
-            return mappedCenter.addingTimeInterval(offset)
+    private func calculatePosition(for item: AggregatedData, centers: [Date]) -> Date {
+        guard let index = centers.firstIndex(of: item.periodCenterDate) else {
+            return item.periodCenterDate
         }
-        return data.periodCenterDate
+        let offset = item.activityType == .sitting ? -barOffset : barOffset
+        return axisCenters[index].addingTimeInterval(offset)
     }
     
-    private func createChartBar(for data: AggregatedData, with width: Double) -> ChartBar {
-        let (baseColor, extraColor) = colors(for: data.activityType)
-        return ChartBar(
-            mappedPositionDate: mappedBarPosition(for: data),
-            baseMinutes: data.baseMinutes,
-            extraMinutes: data.extraMinutes,
-            baseColor: baseColor,
-            extraColor: extraColor,
-            width: width
-        )
-    }
-    
-    private func colors(for type: AggregatedData.ActivityType) -> (base: Color, extra: Color) {
+    private func getColors(for type: AggregatedData.ActivityType) -> (base: Color, extra: Color) {
         switch type {
         case .sitting:
             return (ChartConfig.Colors.sittingBase, ChartConfig.Colors.sittingExtra)
@@ -197,22 +148,63 @@ class SessionChartViewModel {
         }
     }
     
-    private var maxYAxisValue: Double {
-        let maxValue = aggregatedData.map { $0.baseMinutes + $0.extraMinutes }.max() ?? 0
-        return max(maxValue, ChartConfig.Axis.defaultPeriodInMinutes) * ChartConfig.Axis.YAxis.yAxisMaxScaleFactor
+    private var maxYValue: Double {
+        let data = computeAggregatedData()
+        let maxMinutes = data.map { $0.baseMinutes + $0.extraMinutes }.max() ?? 0
+        return max(maxMinutes, ChartConfig.Axis.defaultPeriodInMinutes) * ChartConfig.Axis.YAxis.maxScaleFactor
     }
     
-    private func computeYAxisGridStep() -> Double {
-        let oneHourInMinutes: Double = 60.0
-        if maxYAxisValue <= oneHourInMinutes {
-            return ChartConfig.Axis.GridStep.small.rawValue
-        } else if maxYAxisValue <= oneHourInMinutes * ChartConfig.Axis.YAxis.mediumGridThresholdHours {
-            return ChartConfig.Axis.GridStep.medium.rawValue
-        } else if maxYAxisValue <= oneHourInMinutes * ChartConfig.Axis.YAxis.largeGridThresholdHours {
-            return ChartConfig.Axis.GridStep.large.rawValue
-        } else {
-            let roughStep = maxYAxisValue / ChartConfig.Axis.YAxis.yAxisStepDivisor
-            return max(roughStep.rounded(), oneHourInMinutes)
+    private func computeGridStep() -> Double {
+        let hour: Double = 60
+        let maxValue = maxYValue
+        
+        switch maxValue {
+        case ...hour: return ChartConfig.Axis.GridStep.small.rawValue
+        case ...(hour * ChartConfig.Axis.YAxis.mediumThreshold): return ChartConfig.Axis.GridStep.medium.rawValue
+        case ...(hour * ChartConfig.Axis.YAxis.largeThreshold): return ChartConfig.Axis.GridStep.large.rawValue
+        default: return max(maxValue / ChartConfig.Axis.YAxis.stepDivisor, hour)
         }
+    }
+    
+    private func formatTimeRange(for date: Date) -> String {
+        let hour = calendar.component(.hour, from: date) - 1
+        return "\(hour)-\(hour + ChartConfig.segmentHours)"
+    }
+    
+    private func formatWeekday(for date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated))
+    }
+}
+
+
+// Aggregate data
+
+
+private extension SessionChartViewModel {
+    // groups data into 2-hour intervals over the course of one day
+     func aggregateBySegments(sessions: [M_Session]) -> [AggregatedData] {
+        let today = calendar.startOfDay(for: Date())
+        let grouped = Dictionary(grouping: sessions) { session in
+            calendar.component(.hour, from: session.createdAt) / ChartConfig.segmentHours
+        }
+        
+        var result: [AggregatedData] = []
+        for (segment, sessions) in grouped.sorted(by: { $0.key < $1.key }) {
+            let center = calendar.date(byAdding: .hour, value: segment * ChartConfig.segmentHours + 1, to: today)!
+            result.append(contentsOf: createDataEntries(for: sessions, center: center))
+        }
+        return result
+    }
+    
+    // groups data by whole days
+     func aggregateByDays(sessions: [M_Session]) -> [AggregatedData] {
+        let grouped = Dictionary(grouping: sessions) { calendar.startOfDay(for: $0.createdAt) }
+        
+        var result: [AggregatedData] = []
+        for (day, sessions) in grouped.sorted(by: { $0.key < $1.key }) {
+            let center = calendar.date(byAdding: .hour, value: ChartConfig.dayCenterHour, to: day)!
+            result.append(contentsOf: createDataEntries(for: sessions, center: center))
+        }
+        return result
     }
 }

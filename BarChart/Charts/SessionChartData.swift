@@ -15,22 +15,18 @@
 import Foundation
 
 struct M_Session {
-    let sittingOverall: Int
-    let sittingOvertime: Int
-    let exercisingOverall: Int
-    let exercisingOvertime: Int
+    let sittingOverall, sittingOvertime: Int
+    let exercisingOverall, exercisingOvertime: Int
     let createdAt: Date
 }
 
 struct AggregatedData: Identifiable {
     enum ActivityType: String {
-        case sitting = "Sitting"
-        case exercising = "Exercising"
+        case sitting = "Sitting", exercising = "Exercising"
     }
     
     let id = UUID()
-    let periodCenterDate: Date  // Center of the period (segment or day)
+    let periodCenterDate: Date
     let activityType: ActivityType
-    let baseMinutes: Double
-    let extraMinutes: Double
+    let baseMinutes, extraMinutes: Double
 }
