@@ -7,6 +7,15 @@
 
 import Foundation
 
+//
+//  SessionChartData.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 29.09.2025.
+//
+
+import Foundation
+
 struct SessionData: Identifiable {
     let id = UUID()
     let sittingDate: Date
@@ -29,6 +38,6 @@ struct AggregatedData: Identifiable {
     let activityType: ActivityType
     let base: Double
     let extra: Double
+    let intervalLabel: String? // New property for interval labels
 }
-
 

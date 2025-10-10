@@ -5,6 +5,15 @@
 //  Created by Denis Yaremenko on 06.10.2025.
 //
 
+//
+//  DataAggregationStrategy.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 06.10.2025.
+//
+
+import Foundation
+
 import Foundation
 
 // MARK: - Base Protocols
@@ -16,24 +25,26 @@ protocol DataAggregationStrategy {
 class BaseAggregationStrategy {
     let calendar = Calendar.current
     
-    func createAggregatedData(for sessions: [SessionData], date: Date) -> [AggregatedData] {
+    func createAggregatedData(for sessions: [SessionData], date: Date, intervalLabel: String? = nil) -> [AggregatedData] {
         [
             AggregatedData(
                 date: date,
                 activityType: .sitting,
                 base: sessions.reduce(0) { $0 + $1.sittingBase },
-                extra: sessions.reduce(0) { $0 + $1.sittingOvertime }
+                extra: sessions.reduce(0) { $0 + $1.sittingOvertime },
+                intervalLabel: intervalLabel
             ),
             AggregatedData(
                 date: date,
                 activityType: .exercising,
                 base: sessions.reduce(0) { $0 + $1.exercisingBase },
-                extra: sessions.reduce(0) { $0 + $1.exercisingExtra }
+                extra: sessions.reduce(0) { $0 + $1.exercisingExtra },
+                intervalLabel: intervalLabel
             )
         ]
     }
     
-    func createMaxAggregatedData(for sessions: [SessionData], date: Date) -> [AggregatedData] {
+    func createMaxAggregatedData(for sessions: [SessionData], date: Date, intervalLabel: String? = nil) -> [AggregatedData] {
         let maxSittingSession = sessions.max(by: {
             ($0.sittingBase + $0.sittingOvertime) < ($1.sittingBase + $1.sittingOvertime)
         })
@@ -47,15 +58,70 @@ class BaseAggregationStrategy {
                 date: date,
                 activityType: .sitting,
                 base: maxSittingSession?.sittingBase ?? 0,
-                extra: maxSittingSession?.sittingOvertime ?? 0
+                extra: maxSittingSession?.sittingOvertime ?? 0,
+                intervalLabel: intervalLabel
             ),
             AggregatedData(
                 date: date,
                 activityType: .exercising,
                 base: maxExercisingSession?.exercisingBase ?? 0,
-                extra: maxExercisingSession?.exercisingExtra ?? 0
+                extra: maxExercisingSession?.exercisingExtra ?? 0,
+                intervalLabel: intervalLabel
             )
         ]
+    }
+    
+    // Updated method for 2-hour interval aggregation with proper labeling
+    func aggregateByTwoHourIntervals(sessions: [SessionData]) -> [AggregatedData] {
+        let calendar = Calendar.current
+        var result: [AggregatedData] = []
+        
+        // Group sessions by 2-hour intervals
+        let groupedByInterval = Dictionary(grouping: sessions) { session in
+            let components = calendar.dateComponents([.year, .month, .day, .hour], from: session.sittingDate)
+            let hour = components.hour ?? 0
+            let intervalStartHour = hour - (hour % 2) // Group into 2-hour blocks: 0-2, 2-4, etc.
+            return calendar.date(from: DateComponents(
+                year: components.year,
+                month: components.month,
+                day: components.day,
+                hour: intervalStartHour
+            ))!
+        }
+        
+        // Create aggregated data for each interval
+        for (intervalStart, intervalSessions) in groupedByInterval {
+            let sittingTotalBase = intervalSessions.reduce(0) { $0 + $1.sittingBase }
+            let sittingTotalExtra = intervalSessions.reduce(0) { $0 + $1.sittingOvertime }
+            let exercisingTotalBase = intervalSessions.reduce(0) { $0 + $1.exercisingBase }
+            let exercisingTotalExtra = intervalSessions.reduce(0) { $0 + $1.exercisingExtra }
+            
+            // Create interval label (e.g., "10-12")
+            let startHour = calendar.component(.hour, from: intervalStart)
+            let endHour = startHour + 2
+            let intervalLabel = "\(startHour)-\(endHour)"
+            
+            // Center date in the middle of the 2-hour interval
+            let centerDate = calendar.date(byAdding: .hour, value: 1, to: intervalStart)!
+            
+            result.append(AggregatedData(
+                date: centerDate,
+                activityType: .sitting,
+                base: sittingTotalBase,
+                extra: sittingTotalExtra,
+                intervalLabel: intervalLabel
+            ))
+            
+            result.append(AggregatedData(
+                date: centerDate,
+                activityType: .exercising,
+                base: exercisingTotalBase,
+                extra: exercisingTotalExtra,
+                intervalLabel: intervalLabel
+            ))
+        }
+        
+        return result.sorted { $0.date < $1.date }
     }
     
     func aggregateByDay(sessions: [SessionData], includeAllDays: Bool = false, dateRange: ClosedRange<Date>? = nil) -> [AggregatedData] {
@@ -75,7 +141,7 @@ class BaseAggregationStrategy {
             return createMaxAggregatedData(for: dailySessions, date: date)
         }
     }
-    
+
     private func generateDateRange(from startDate: Date, to endDate: Date) -> [Date] {
         var dates: [Date] = []
         var currentDate = startDate
@@ -87,14 +153,23 @@ class BaseAggregationStrategy {
     }
 }
 
-// MARK: - Day Aggregation
+// MARK: - Day Aggregation (2-hour intervals)
 class DayDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
     func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
         let today = calendar.startOfDay(for: Date())
         let filteredSessions = sessions.filter { calendar.isDate($0.sittingDate, inSameDayAs: today) }
-        return createMaxAggregatedData(for: filteredSessions, date: today)
+        return aggregateByTwoHourIntervals(sessions: filteredSessions)
     }
 }
+
+//
+//  DataAggregationStrategy.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 06.10.2025.
+//
+
+import Foundation
 
 // MARK: - Three Days Aggregation
 class ThreeDaysDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
@@ -108,89 +183,5 @@ class ThreeDaysDataAggregationStrategy: BaseAggregationStrategy, DataAggregation
         
         let dateRange = threeDaysAgo...today
         return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
-    }
-}
-
-// MARK: - Week Aggregation
-class WeekDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let today = calendar.startOfDay(for: Date())
-        let weekStart = calendar.date(
-            byAdding: .day,
-            value: ChartConfig.DateOffsets.week,
-            to: today
-        )!
-        
-        let dateRange = weekStart...today
-        return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
-    }
-}
-
-// MARK: - 15 Days Aggregation
-class HalfMonthDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let today = calendar.startOfDay(for: Date())
-        let fifteenDaysAgo = calendar.date(byAdding: .day, value: ChartConfig.DateOffsets.halfOfMonth, to: today)!
-        
-        let dateRange = fifteenDaysAgo...today
-        return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
-    }
-}
-
-// MARK: - Month Aggregation
-class MonthDataAggregationStrategy: BaseAggregationStrategy, DataAggregationStrategy {
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        let thirtyDaysAgo = calendar.date(
-            byAdding: .day,
-            value: ChartConfig.DateOffsets.halfOfMonth,
-            to: calendar.startOfDay(for: Date())
-        )!
-        
-        let dateRange = thirtyDaysAgo...Date()
-        return aggregateByDay(sessions: sessions, includeAllDays: true, dateRange: dateRange)
-    }
-}
-
-// MARK: - Period-based Aggregation
-class PeriodBasedAggregationStrategy: BaseAggregationStrategy {
-    let periodComponent: Calendar.Component
-    let periodValue: Int
-    
-    init(periodComponent: Calendar.Component, periodValue: Int) {
-        self.periodComponent = periodComponent
-        self.periodValue = periodValue
-    }
-    
-    func aggregateByPeriod(sessions: [SessionData]) -> [AggregatedData] {
-        let groupedSessions = Dictionary(grouping: sessions) { session in
-            let components = calendar.dateComponents([.year, periodComponent], from: session.sittingDate)
-            return calendar.date(from: components)!
-        }
-        
-        return groupedSessions.flatMap { (periodStart, periodSessions) in
-            createAggregatedData(for: periodSessions, date: periodStart)
-        }.sorted { $0.date < $1.date }
-    }
-}
-
-// MARK: - Half Year Aggregation
-class HalfYearDataAggregationStrategy: PeriodBasedAggregationStrategy, DataAggregationStrategy {
-    init() {
-        super.init(periodComponent: .weekOfYear, periodValue: ChartConfig.DateOffsets.halfYearMonth)
-    }
-    
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        return aggregateByPeriod(sessions: sessions)
-    }
-}
-
-// MARK: - Year Aggregation
-class YearDataAggregationStrategy: PeriodBasedAggregationStrategy, DataAggregationStrategy {
-    init() {
-        super.init(periodComponent: .month, periodValue: ChartConfig.Time.monthsInYear)
-    }
-    
-    func getAggregateData(from sessions: [SessionData]) -> [AggregatedData] {
-        return aggregateByPeriod(sessions: sessions)
     }
 }

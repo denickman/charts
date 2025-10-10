@@ -9,6 +9,26 @@ import Foundation
 import SwiftUI
 import Charts
 
+//
+//  SessionChartView.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 29.10.2025.
+//
+
+import SwiftUI
+import Charts
+
+//
+//  SessionChartView.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 29.10.2025.
+//
+
+import SwiftUI
+import Charts
+
 struct SessionChartView: View {
     @State private var viewModel = SessionChartViewModel()
 
@@ -23,7 +43,7 @@ struct SessionChartView: View {
     private var periodPicker: some View {
         Picker("Period", selection: $viewModel.selectedPeriod) {
             ForEach(SessionChartViewModel.ChartPeriod.allCases, id: \.self) {
-                Text("\($0.rawValue)").tag($0)
+                Text($0.displayName).tag($0)
             }
         }
         .pickerStyle(.segmented)
@@ -42,7 +62,7 @@ struct SessionChartView: View {
         Chart {
             ForEach(viewModel.chartBars) { bar in
                 BarMark(
-                    x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", bar.xValue),
+                    x: .value("Time", bar.xValue),
                     y: .value("Minutes", bar.baseHeight),
                     width: .fixed(bar.width)
                 )
@@ -50,7 +70,7 @@ struct SessionChartView: View {
                 .clipShape(.rect(cornerRadius: .zero))
 
                 BarMark(
-                    x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", bar.xValue),
+                    x: .value("Time", bar.xValue),
                     yStart: .value("Base", bar.baseHeight),
                     yEnd: .value("Top", bar.baseHeight + bar.extraHeight),
                     width: .fixed(bar.width)
@@ -61,7 +81,17 @@ struct SessionChartView: View {
         }
         .chartXAxis {
             AxisMarks(values: viewModel.xAxisValues) { value in
-                AxisValueLabel(format: viewModel.xAxisLabelFormat)
+                if viewModel.selectedPeriod == .day,
+                   let date = value.as(Date.self),
+                   let bar = viewModel.chartBars.first(where: {
+                       Calendar.current.isDate($0.xValue, inSameDayAs: date) &&
+                       Calendar.current.component(.hour, from: $0.xValue) == Calendar.current.component(.hour, from: date)
+                   }),
+                   let intervalLabel = bar.intervalLabel {
+                    AxisValueLabel(intervalLabel)
+                } else {
+                    AxisValueLabel(format: viewModel.xAxisLabelFormat)
+                }
                 AxisTick()
                 AxisGridLine()
             }

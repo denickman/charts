@@ -7,16 +7,12 @@
 
 import Foundation
 
+
 struct AxisStrategyFactory {
     static func create(for period: SessionChartViewModel.ChartPeriod) -> ChartAxisStrategy {
         switch period {
         case .day: return DayXAxisStrategy()
         case .threeDays: return ThreeDaysXAxisStrategy()
-        case .week: return WeekXAxisStrategy()
-        case .halfMonth: return HalfMonthXAxisStrategy()
-        case .month: return MonthXAxisStrategy()
-        case .halfYear: return HalfYearXAxisStrategy()
-        case .year: return YearXAxisStrategy()
         }
     }
 }
@@ -26,11 +22,6 @@ struct DataAggregationStrategyFactory {
         switch period {
         case .day: return DayDataAggregationStrategy()
         case .threeDays: return ThreeDaysDataAggregationStrategy()
-        case .week: return WeekDataAggregationStrategy()
-        case .month: return MonthDataAggregationStrategy()
-        case .halfYear: return HalfYearDataAggregationStrategy()
-        case .year: return YearDataAggregationStrategy()
-        case .halfMonth: return HalfMonthDataAggregationStrategy()
         }
     }
 }

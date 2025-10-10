@@ -7,6 +7,15 @@
 
 import Foundation
 import SwiftUI
+//
+//  ChartConfig.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 07.10.2025.
+//
+
+import Foundation
+import SwiftUI
 
 enum ChartConfig {
     enum Bar {
@@ -26,8 +35,6 @@ enum ChartConfig {
         static let minutesInHour: Double = 60.0
         static let hoursInDay: Double = 24.0
         static let daysInWeek: Double = 7.0
-        static let monthsInHalfYear: Int = 6
-        static let monthsInYear: Int = 12
     }
     
     enum Axis {
@@ -46,27 +53,12 @@ enum ChartConfig {
     
     enum DateOffsets {
         static let threeDays: Int = -2
-        static let week: Int = -6
-        static let halfOfMonth: Int = -14
-        static let month: Int = -29
-        static let halfYearMonth: Int = -5
         static let dayCenterHour: Int = 12
-        static let yearCenterDays: Int = 15
-        static let yearTimeOffsetDays: Double = 7.5
-    }
-    
-    enum TimeOffsets {
-        static let weekHours: Double = 4
-        static let monthHours: Double = 6
-        static let halfYearDays: Int = 1
     }
     
     enum DataRanges {
         static let dayHours: [Int] = [0, 6, 12, 18]
         static let threeDaysRange: ClosedRange<Int> = -2...0
-        static let weekRange: ClosedRange<Int> = -6...0
-        static let monthWeeks: Int = 5
-        static let weekDaysInterval: Int = 7
     }
     
     enum Colors {
@@ -75,6 +67,4 @@ enum ChartConfig {
         static let exercisingBase = Color.gray.opacity(0.8)
         static let exercisingExtra = Color.green.opacity(0.8)
     }
-    
-    
 }

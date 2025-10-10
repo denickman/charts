@@ -4,27 +4,36 @@
 //
 //  Created by Denis Yaremenko on 29.09.2025.
 //
+//
+//  SessionChartViewModel.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 29.10.2025.
+//
+//
+//  SessionChartViewModel.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 29.10.2025.
+//
 
 import SwiftUI
 
 @Observable
 class SessionChartViewModel {
     
-    enum ChartData {
-        case sessionData([SessionData])
-        case aggregatedData([AggregatedData])
-    }
-    
     enum ChartPeriod: Int, CaseIterable, Identifiable {
         case day = 1
         case threeDays = 3
-        case week = 7
-        case halfMonth = 15
-        case month = 30
-        case halfYear = 180
-        case year = 365
         
         var id: Int { rawValue }
+        
+        var displayName: String {
+            switch self {
+            case .day: return "1 Day"
+            case .threeDays: return "3 Days"
+            }
+        }
     }
     
     struct ChartBar: Identifiable {
@@ -35,36 +44,20 @@ class SessionChartViewModel {
         let baseColor: Color
         let extraColor: Color
         let width: Double
+        let intervalLabel: String? // New property for interval labels
+    }
+    
+    var selectedPeriod: ChartPeriod = .day
+    
+    // MARK: - Computed Properties
+    
+    var aggregatedData: [AggregatedData] {
+        let currentStrategy = DataAggregationStrategyFactory.create(for: selectedPeriod)
+        return currentStrategy.getAggregateData(from: sessionsData)
     }
     
     var chartBars: [ChartBar] {
-        switch selectedPeriod {
-        case .day, .threeDays:
-            return filteredData.flatMap { session in
-                [
-                    createBar(for: session, type: .sitting),
-                    createBar(for: session, type: .exercising)
-                ]
-            }
-        default:
-            return aggregatedData.map { createBar(for: $0) }
-        }
-    }
-    
-    private func createBar(for session: SessionData, type: AggregatedData.ActivityType) -> ChartBar {
-        let (baseColor, extraColor) = barStyle(for: type, isExtra: true)
-        let xValue = type == .sitting ? session.sittingDate : session.exercisingDate
-        let baseHeight = type == .sitting ? session.sittingBase : session.exercisingBase
-        let extraHeight = type == .sitting ? session.sittingOvertime : session.exercisingExtra
-        
-        return ChartBar(
-            xValue: xValue,
-            baseHeight: baseHeight,
-            extraHeight: extraHeight,
-            baseColor: baseColor,
-            extraColor: extraColor,
-            width: dynamicBarWidth
-        )
+        aggregatedData.map { createBar(for: $0) }
     }
     
     private func createBar(for data: AggregatedData) -> ChartBar {
@@ -77,41 +70,17 @@ class SessionChartViewModel {
             extraHeight: data.extra,
             baseColor: baseColor,
             extraColor: extraColor,
-            width: dynamicBarWidth
+            width: dynamicBarWidth,
+            intervalLabel: data.intervalLabel
         )
     }
     
-    var selectedPeriod: ChartPeriod = .day
-    
-    // MARK: - Computed Properties
-    
-    var chartData: ChartData {
-        switch selectedPeriod {
-        case .day, .threeDays:
-            return .sessionData(filteredData)
-        case .week, .halfMonth, .month, .halfYear, .year:
-            return .aggregatedData(aggregatedData)
-        }
-    }
-    
-    var aggregatedData: [AggregatedData] {
-        let currentStrategy = DataAggregationStrategyFactory.create(for: selectedPeriod)
-        return currentStrategy.getAggregateData(from: sessionsData)
-    }
-    
-    var filteredData: [SessionData] {
-        switch selectedPeriod {
-        case .day:
-            return filterSessionsForLastDays(1)
-        case .threeDays:
-            return filterSessionsForLastDays(3)
-        default:
-            return []
-        }
-    }
-    
     var xAxisValues: [Date] {
-        currentAxisStrategy.xAxisValues
+        currentAxisStrategy.getXAxisValues(from: aggregatedData)
+    }
+    
+    var xAxisLabels: [String] {
+        currentAxisStrategy.getXAxisLabels(from: aggregatedData)
     }
     
     var chartYScaleDomain: ClosedRange<Double> {
@@ -144,7 +113,7 @@ class SessionChartViewModel {
         } else if maxYValue <= oneHour * ChartConfig.Axis.YAxis.normalGridThreshold {
             return ChartConfig.Axis.YAxis.normalGridStep
         } else if maxYValue <= oneHour * ChartConfig.Axis.YAxis.sparseGridThreshold {
-            return ChartConfig.Axis.YAxis.sparseGridStep
+            return ChartConfig.Axis.YAxis.sparseGridThreshold
         } else {
             let roughStep = maxYValue / ChartConfig.Axis.YAxis.autoCalculationDivisor
             let roundedStep = (roughStep / oneHour).rounded() * oneHour
@@ -203,21 +172,12 @@ class SessionChartViewModel {
             return (ChartConfig.Colors.exercisingBase, ChartConfig.Colors.exercisingExtra)
         }
     }
-    
-    private func filterSessionsForLastDays(_ days: Int) -> [SessionData] {
-        let calendar = Calendar.current
-        let now = Date()
-        let startDate = calendar.date(byAdding: .day, value: -days, to: now)!
-        
-        return sessionsData.filter { session in
-            session.sittingDate >= startDate && session.sittingDate <= now
-        }
-    }
 }
 
 extension SessionChartViewModel {
     struct AxisConfiguration {
         let values: [Date]
+        let labels: [String]
         let labelFormat: Date.FormatStyle
         let yAxisInterval: Double
     }
@@ -225,6 +185,7 @@ extension SessionChartViewModel {
     var axisConfiguration: AxisConfiguration {
         AxisConfiguration(
             values: xAxisValues,
+            labels: xAxisLabels,
             labelFormat: xAxisLabelFormat,
             yAxisInterval: yAxisGridLineInterval
         )
