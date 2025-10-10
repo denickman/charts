@@ -75,4 +75,6 @@ enum ChartConfig {
         static let exercisingBase = Color.gray.opacity(0.8)
         static let exercisingExtra = Color.green.opacity(0.8)
     }
+    
+    
 }
