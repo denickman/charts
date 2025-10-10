@@ -5,11 +5,9 @@
 ////  Created by Denis Yaremenko on 29.09.2025.
 ////
 ///
-// MARK: - Simplified View
 
 import SwiftUI
 import Charts
-
 
 struct ChartView: View {
     @State private var viewModel = ChartViewModel()
@@ -42,29 +40,29 @@ struct ChartView: View {
     
     private var chart: some View {
         Chart {
-              ForEach(viewModel.bars) { bar in
-                  // Базовая часть (серая)
-                  BarMark(
-                      x: .value("Time", bar.date),
-                      y: .value("Minutes", bar.base),
-                      width: .fixed(bar.width)
-                  )
-                  .foregroundStyle(bar.baseColor) // Серая база
-                  
-                  // Дополнительная часть (красная/зеленая)
-                  BarMark(
-                      x: .value("Time", bar.date),
-                      yStart: .value("Base", bar.base),
-                      yEnd: .value("Total", bar.base + bar.extra),
-                      width: .fixed(bar.width)
-                  )
-                  .foregroundStyle(bar.extraColor) // Красная/зеленая экстра
-              }
-          }
+            ForEach(viewModel.bars) { bar in
+                BarMark(
+                    x: .value("Time", bar.date),
+                    y: .value("Minutes", bar.base),
+                    width: .fixed(bar.width)
+                )
+                .foregroundStyle(bar.baseColor)
+                
+                BarMark(
+                    x: .value("Time", bar.date),
+                    yStart: .value("Base", bar.base),
+                    yEnd: .value("Total", bar.base + bar.extra),
+                    width: .fixed(bar.width)
+                )
+                .foregroundStyle(bar.extraColor)
+            }
+        }
         .chartXAxis {
             AxisMarks(values: viewModel.axisConfig.values) { value in
                 if let date = value.as(Date.self),
-                   let bar = viewModel.bars.first(where: { Calendar.current.isDate($0.date, equalTo: date, toGranularity: .hour) }),
+                   let bar = viewModel.bars.first(where: {
+                       Calendar.current.isDate($0.date, equalTo: date, toGranularity: .hour)
+                   }),
                    let label = bar.timeLabel {
                     AxisValueLabel(label)
                 } else {
@@ -82,6 +80,10 @@ struct ChartView: View {
         }
         .chartXScale(domain: viewModel.axisConfig.domain)
         .chartYScale(domain: viewModel.yAxisRange)
+        .chartPlotStyle { plotArea in
+            plotArea
+                .background(Color.blue.opacity(0.1)) // Цветной фон с opacity 0.1
+        }
         .frame(height: 300)
         .padding()
         .animation(.easeInOut(duration: 0.25), value: viewModel.selectedPeriod)

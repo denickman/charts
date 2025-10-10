@@ -8,11 +8,14 @@
 import Foundation
 
 enum SampleData {
-    static let sessions: [Session] = [
-        Session(
-            date: createDate(dayOffset: 0, hour: 8),
-            sitting: Activity(base: 20, extra: 10),
-            exercising: Activity(base: 10, extra: 5)
+    static let sessions: [M_Session] = [
+        M_Session(
+            sittingStartedAt: createDate(dayOffset: 0, hour: 11),
+            sittingOverall: 20,
+            sittingOvertime: 10,
+            exercisingStartedAt: createDate(dayOffset: 0, hour: 11, minute: 30),
+            exercisingOverall: 10,
+            exercisingOvertime: 10
         )
     ]
     
@@ -22,4 +25,3 @@ enum SampleData {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date)!
     }
 }
-

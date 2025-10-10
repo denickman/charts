@@ -7,20 +7,17 @@
 
 import Foundation
 
-// MARK: - Simplified Models
-struct Session: Identifiable {
-    let id = UUID()
-    let date: Date
-    let sitting: Activity
-    let exercising: Activity
+struct M_Session {
+    let sittingStartedAt: Date
+    let sittingOverall: Int
+    let sittingOvertime: Int
+    
+    let exercisingStartedAt: Date
+    let exercisingOverall: Int
+    let exercisingOvertime: Int
 }
 
-struct Activity {
-    let base: Double
-    let extra: Double
-    
-    var total: Double { base + extra }
-}
+
 
 struct ChartData: Identifiable {
     let id = UUID()

@@ -25,14 +25,14 @@ class ChartViewModel {
         let date: Date
         let base: Double
         let extra: Double
-        let baseColor: Color  // Добавлено
-        let extraColor: Color // Добавлено
+        let baseColor: Color
+        let extraColor: Color
         let width: Double
         let timeLabel: String?
     }
     
     var selectedPeriod: ChartPeriod = .day
-    private let testData: [Session] = SampleData.sessions
+    private let testData: [M_Session] = SampleData.sessions
     
     // Computed properties
     var chartData: [ChartData] {
@@ -46,19 +46,16 @@ class ChartViewModel {
         return chartData.map { data in
             let positionedDate = axisStrategy.calculateBarPosition(for: data)
             
-            // Замени это:
-            // let color = data.activityType == .sitting ? Color.red : Color.green
-            
-            // На это:
             let baseColor = Color.gray.opacity(0.8)
-            let extraColor = data.activityType == .sitting ? Color.red.opacity(0.8) : Color.green.opacity(0.8)
+            let extraColor = data.activityType == .sitting ?
+                Color.red.opacity(0.8) : Color.green.opacity(0.8)
             
             return ChartBar(
                 date: positionedDate,
                 base: data.base,
                 extra: data.extra,
-                baseColor: baseColor,   // Изменено
-                extraColor: extraColor, // Изменено
+                baseColor: baseColor,
+                extraColor: extraColor,
                 width: axisStrategy.barWidth,
                 timeLabel: data.timeLabel
             )

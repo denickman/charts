@@ -8,25 +8,28 @@
 import Foundation
 
 protocol DataAggregator {
-    func aggregate(_ sessions: [Session]) -> [ChartData]
+    func aggregate(_ sessions: [M_Session]) -> [ChartData]
 }
-
 
 class DayDataAggregator: DataAggregator {
     private let calendar = Calendar.current
     
-    func aggregate(_ sessions: [Session]) -> [ChartData] {
+    func aggregate(_ sessions: [M_Session]) -> [ChartData] {
         let today = calendar.startOfDay(for: Date())
-        let todaySessions = sessions.filter { calendar.isDate($0.date, inSameDayAs: today) }
+        let todaySessions = sessions.filter {
+            calendar.isDate($0.sittingStartedAt, inSameDayAs: today) ||
+            calendar.isDate($0.exercisingStartedAt, inSameDayAs: today)
+        }
         
         return aggregateByTimeIntervals(sessions: todaySessions, intervalHours: 2)
     }
     
-    private func aggregateByTimeIntervals(sessions: [Session], intervalHours: Int) -> [ChartData] {
+    private func aggregateByTimeIntervals(sessions: [M_Session], intervalHours: Int) -> [ChartData] {
         var result: [ChartData] = []
         
-        let grouped = Dictionary(grouping: sessions) { session in
-            let components = calendar.dateComponents([.year, .month, .day, .hour], from: session.date)
+        // Группируем сессии по интервалам для сидения
+        let sittingGrouped = Dictionary(grouping: sessions) { session in
+            let components = calendar.dateComponents([.year, .month, .day, .hour], from: session.sittingStartedAt)
             let hour = components.hour ?? 0
             let intervalStart = hour - (hour % intervalHours)
             return calendar.date(from: DateComponents(
@@ -37,50 +40,67 @@ class DayDataAggregator: DataAggregator {
             ))!
         }
         
-        for (intervalStart, intervalSessions) in grouped {
-            let sittingTotal = intervalSessions.reduce(Activity(base: 0, extra: 0)) { result, session in
-                Activity(
-                    base: result.base + session.sitting.base,
-                    extra: result.extra + session.sitting.extra
-                )
-            }
+        // Группируем сессии по интервалам для упражнений
+        let exercisingGrouped = Dictionary(grouping: sessions) { session in
+            let components = calendar.dateComponents([.year, .month, .day, .hour], from: session.exercisingStartedAt)
+            let hour = components.hour ?? 0
+            let intervalStart = hour - (hour % intervalHours)
+            return calendar.date(from: DateComponents(
+                year: components.year,
+                month: components.month,
+                day: components.day,
+                hour: intervalStart
+            ))!
+        }
+        
+        // Обрабатываем сидения
+        for (intervalStart, intervalSessions) in sittingGrouped {
+            let sittingTotalBase = intervalSessions.reduce(0) { $0 + Double($1.sittingOverall) }
+            let sittingTotalExtra = intervalSessions.reduce(0) { $0 + Double($1.sittingOvertime) }
             
-            let exercisingTotal = intervalSessions.reduce(Activity(base: 0, extra: 0)) { result, session in
-                Activity(
-                    base: result.base + session.exercising.base,
-                    extra: result.extra + session.exercising.extra
-                )
-            }
-            
-            let startHour = calendar.component(.hour, from: intervalStart)
-            let timeLabel = "\(startHour)-\(startHour + intervalHours)"
-            let centerDate = calendar.date(byAdding: .hour, value: 1, to: intervalStart)!
+            let timeLabel = createTimeLabel(for: intervalStart, intervalHours: intervalHours)
+            let centerDate = calendar.date(byAdding: .hour, value: intervalHours/2, to: intervalStart)!
             
             result.append(ChartData(
                 date: centerDate,
                 activityType: .sitting,
-                base: sittingTotal.base,
-                extra: sittingTotal.extra,
+                base: sittingTotalBase,
+                extra: sittingTotalExtra,
                 timeLabel: timeLabel
             ))
+        }
+        
+        // Обрабатываем упражнения
+        for (intervalStart, intervalSessions) in exercisingGrouped {
+            let exercisingTotalBase = intervalSessions.reduce(0) { $0 + Double($1.exercisingOverall) }
+            let exercisingTotalExtra = intervalSessions.reduce(0) { $0 + Double($1.exercisingOvertime) }
+            
+            let timeLabel = createTimeLabel(for: intervalStart, intervalHours: intervalHours)
+            let centerDate = calendar.date(byAdding: .hour, value: intervalHours/2, to: intervalStart)!
             
             result.append(ChartData(
                 date: centerDate,
                 activityType: .exercising,
-                base: exercisingTotal.base,
-                extra: exercisingTotal.extra,
+                base: exercisingTotalBase,
+                extra: exercisingTotalExtra,
                 timeLabel: timeLabel
             ))
         }
         
         return result.sorted { $0.date < $1.date }
     }
+    
+    private func createTimeLabel(for intervalStart: Date, intervalHours: Int) -> String {
+        let startHour = calendar.component(.hour, from: intervalStart)
+        let endHour = startHour + intervalHours
+        return "\(startHour)-\(endHour)"
+    }
 }
 
 class ThreeDaysDataAggregator: DataAggregator {
     private let calendar = Calendar.current
     
-    func aggregate(_ sessions: [Session]) -> [ChartData] {
+    func aggregate(_ sessions: [M_Session]) -> [ChartData] {
         let today = calendar.startOfDay(for: Date())
         let threeDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
         
@@ -88,16 +108,29 @@ class ThreeDaysDataAggregator: DataAggregator {
         return aggregateByDay(sessions: sessions, includeEmptyDays: true, dateRange: dateRange)
     }
     
-    private func aggregateByDay(sessions: [Session], includeEmptyDays: Bool, dateRange: ClosedRange<Date>) -> [ChartData] {
-        let grouped = Dictionary(grouping: sessions) { session in
-            calendar.startOfDay(for: session.date)
+    private func aggregateByDay(sessions: [M_Session], includeEmptyDays: Bool, dateRange: ClosedRange<Date>) -> [ChartData] {
+        // Группируем по дням для сидения
+        let sittingGrouped = Dictionary(grouping: sessions) { session in
+            calendar.startOfDay(for: session.sittingStartedAt)
         }
         
-        let dates = includeEmptyDays ? generateDateRange(from: dateRange.lowerBound, to: dateRange.upperBound) : Array(grouped.keys).sorted()
+        // Группируем по дням для упражнений
+        let exercisingGrouped = Dictionary(grouping: sessions) { session in
+            calendar.startOfDay(for: session.exercisingStartedAt)
+        }
+        
+        let dates = includeEmptyDays ? generateDateRange(from: dateRange.lowerBound, to: dateRange.upperBound) :
+            Array(Set(sittingGrouped.keys).union(Set(exercisingGrouped.keys))).sorted()
         
         return dates.flatMap { date in
-            let daySessions = grouped[date] ?? []
-            return createDailyData(for: daySessions, date: date)
+            let daySittingSessions = sittingGrouped[date] ?? []
+            let dayExercisingSessions = exercisingGrouped[date] ?? []
+            
+            return createDailyData(
+                sittingSessions: daySittingSessions,
+                exercisingSessions: dayExercisingSessions,
+                date: date
+            )
         }
     }
     
@@ -111,23 +144,28 @@ class ThreeDaysDataAggregator: DataAggregator {
         return dates
     }
     
-    private func createDailyData(for sessions: [Session], date: Date) -> [ChartData] {
-        let maxSitting = sessions.max(by: { $0.sitting.total < $1.sitting.total })
-        let maxExercising = sessions.max(by: { $0.exercising.total < $1.exercising.total })
+    private func createDailyData(sittingSessions: [M_Session], exercisingSessions: [M_Session], date: Date) -> [ChartData] {
+        let maxSitting = sittingSessions.max(by: {
+            ($0.sittingOverall + $0.sittingOvertime) < ($1.sittingOverall + $1.sittingOvertime)
+        })
+        
+        let maxExercising = exercisingSessions.max(by: {
+            ($0.exercisingOverall + $0.exercisingOvertime) < ($1.exercisingOverall + $1.exercisingOvertime)
+        })
         
         return [
             ChartData(
                 date: date,
                 activityType: .sitting,
-                base: maxSitting?.sitting.base ?? 0,
-                extra: maxSitting?.sitting.extra ?? 0,
+                base: Double(maxSitting?.sittingOverall ?? 0),
+                extra: Double(maxSitting?.sittingOvertime ?? 0),
                 timeLabel: nil
             ),
             ChartData(
                 date: date,
                 activityType: .exercising,
-                base: maxExercising?.exercising.base ?? 0,
-                extra: maxExercising?.exercising.extra ?? 0,
+                base: Double(maxExercising?.exercisingOverall ?? 0),
+                extra: Double(maxExercising?.exercisingOvertime ?? 0),
                 timeLabel: nil
             )
         ]
