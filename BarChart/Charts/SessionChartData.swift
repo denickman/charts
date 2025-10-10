@@ -5,7 +5,12 @@
 //  Created by Denis Yaremenko on 29.09.2025.
 //
 
-import Foundation
+//
+//  SessionChartData.swift
+//  BarChart
+//
+//  Created by Denis Yaremenko on 29.09.2025.
+//
 
 import Foundation
 
@@ -24,8 +29,8 @@ struct AggregatedData: Identifiable {
     }
     
     let id = UUID()
-    let date: Date  // Center of the period (segment or day)
+    let periodCenterDate: Date  // Center of the period (segment or day)
     let activityType: ActivityType
-    let base: Double
-    let extra: Double
+    let baseMinutes: Double
+    let extraMinutes: Double
 }

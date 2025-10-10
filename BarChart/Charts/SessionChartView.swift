@@ -3,10 +3,6 @@
 ////  BarChart
 ////
 ////  Created by Denis Yaremenko on 29.09.2025.
-////
-//
-import SwiftUI
-import Charts
 
 import SwiftUI
 import Charts
@@ -17,51 +13,42 @@ struct SessionChartView: View {
     var body: some View {
         VStack(spacing: 16) {
             periodPicker
-            totalsView
             chartView
         }
     }
 
     private var periodPicker: some View {
         Picker("Period", selection: $viewModel.selectedPeriod) {
-            Text("1 Day").tag(SessionChartViewModel.ChartPeriod.day)
-            Text("3 Days").tag(SessionChartViewModel.ChartPeriod.threeDays)
+            Text("1 day").tag(SessionChartViewModel.ChartPeriod.day)
+            Text("3 days").tag(SessionChartViewModel.ChartPeriod.threeDays)
         }
         .pickerStyle(.segmented)
         .padding(.horizontal)
-    }
-
-    private var totalsView: some View {
-        VStack {
-            Text("Total sitting: \(Int(viewModel.totalSittingMinutes)) min")
-            Text("Total exercising: \(Int(viewModel.totalExercisingMinutes)) min")
-        }
-        .font(.headline)
     }
 
     private var chartView: some View {
         Chart {
             ForEach(viewModel.chartBars) { bar in
                 BarMark(
-                    x: .value("Period", bar.barDate),
-                    y: .value("Minutes", bar.baseHeight),
+                    x: .value("Period", bar.mappedPositionDate),
+                    y: .value("Min", bar.baseMinutes),
                     width: .fixed(bar.width)
                 )
                 .foregroundStyle(bar.baseColor)
                 
                 BarMark(
-                    x: .value("Period", bar.barDate),
-                    yStart: .value("Base", bar.baseHeight),
-                    yEnd: .value("Top", bar.baseHeight + bar.extraHeight),
+                    x: .value("Period", bar.mappedPositionDate),
+                    yStart: .value("Min", bar.baseMinutes),
+                    yEnd: .value("Total", bar.baseMinutes + bar.extraMinutes),
                     width: .fixed(bar.width)
                 )
                 .foregroundStyle(bar.extraColor)
             }
         }
         .chartXAxis {
-            AxisMarks(values: viewModel.axisCenters) { value in
+            AxisMarks(values: viewModel.axisMarkCenters) { value in
                 if let date = value.as(Date.self),
-                   let index = viewModel.axisCenters.firstIndex(of: date) {
+                   let index = viewModel.axisMarkCenters.firstIndex(of: date) {
                     AxisValueLabel {
                         Text(viewModel.axisLabels[index])
                     }
@@ -71,7 +58,7 @@ struct SessionChartView: View {
             }
         }
         .chartYAxis {
-            AxisMarks(values: .stride(by: viewModel.yAxisStep)) { value in
+            AxisMarks(values: .stride(by: viewModel.yAxisGridStep)) { value in
                 AxisGridLine()
                 AxisTick()
                 AxisValueLabel {
