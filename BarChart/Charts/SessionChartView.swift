@@ -4,122 +4,86 @@
 ////
 ////  Created by Denis Yaremenko on 29.09.2025.
 ////
-//
-import Foundation
-import SwiftUI
-import Charts
-
-//
-//  SessionChartView.swift
-//  BarChart
-//
-//  Created by Denis Yaremenko on 29.10.2025.
-//
+///
+// MARK: - Simplified View
 
 import SwiftUI
 import Charts
 
-//
-//  SessionChartView.swift
-//  BarChart
-//
-//  Created by Denis Yaremenko on 29.10.2025.
-//
 
-import SwiftUI
-import Charts
-
-struct SessionChartView: View {
-    @State private var viewModel = SessionChartViewModel()
-
+struct ChartView: View {
+    @State private var viewModel = ChartViewModel()
+    
     var body: some View {
         VStack(spacing: 16) {
             periodPicker
             totalsView
-            chartView
+            chart
         }
     }
-
+    
     private var periodPicker: some View {
         Picker("Period", selection: $viewModel.selectedPeriod) {
-            ForEach(SessionChartViewModel.ChartPeriod.allCases, id: \.self) {
-                Text($0.displayName).tag($0)
+            ForEach(ChartViewModel.ChartPeriod.allCases, id: \.self) { period in
+                Text(period.displayName).tag(period)
             }
         }
         .pickerStyle(.segmented)
         .padding(.horizontal)
     }
-
+    
     private var totalsView: some View {
         VStack {
-            Text("Total sitting: \(Int(viewModel.totalSitting)) min")
-            Text("Total exercising: \(Int(viewModel.totalExercising)) min")
+            Text("Sitting: \(Int(viewModel.totals.sitting)) min")
+            Text("Exercising: \(Int(viewModel.totals.exercising)) min")
         }
         .font(.headline)
     }
-
-    private var chartView: some View {
+    
+    private var chart: some View {
         Chart {
-            ForEach(viewModel.chartBars) { bar in
-                BarMark(
-                    x: .value("Time", bar.xValue),
-                    y: .value("Minutes", bar.baseHeight),
-                    width: .fixed(bar.width)
-                )
-                .foregroundStyle(bar.baseColor)
-                .clipShape(.rect(cornerRadius: .zero))
-
-                BarMark(
-                    x: .value("Time", bar.xValue),
-                    yStart: .value("Base", bar.baseHeight),
-                    yEnd: .value("Top", bar.baseHeight + bar.extraHeight),
-                    width: .fixed(bar.width)
-                )
-                .foregroundStyle(bar.extraColor)
-                .clipShape(.rect(cornerRadius: .zero))
-            }
-        }
+              ForEach(viewModel.bars) { bar in
+                  // Базовая часть (серая)
+                  BarMark(
+                      x: .value("Time", bar.date),
+                      y: .value("Minutes", bar.base),
+                      width: .fixed(bar.width)
+                  )
+                  .foregroundStyle(bar.baseColor) // Серая база
+                  
+                  // Дополнительная часть (красная/зеленая)
+                  BarMark(
+                      x: .value("Time", bar.date),
+                      yStart: .value("Base", bar.base),
+                      yEnd: .value("Total", bar.base + bar.extra),
+                      width: .fixed(bar.width)
+                  )
+                  .foregroundStyle(bar.extraColor) // Красная/зеленая экстра
+              }
+          }
         .chartXAxis {
-            AxisMarks(values: viewModel.xAxisValues) { value in
-                if viewModel.selectedPeriod == .day,
-                   let date = value.as(Date.self),
-                   let bar = viewModel.chartBars.first(where: {
-                       Calendar.current.isDate($0.xValue, inSameDayAs: date) &&
-                       Calendar.current.component(.hour, from: $0.xValue) == Calendar.current.component(.hour, from: date)
-                   }),
-                   let intervalLabel = bar.intervalLabel {
-                    AxisValueLabel(intervalLabel)
+            AxisMarks(values: viewModel.axisConfig.values) { value in
+                if let date = value.as(Date.self),
+                   let bar = viewModel.bars.first(where: { Calendar.current.isDate($0.date, equalTo: date, toGranularity: .hour) }),
+                   let label = bar.timeLabel {
+                    AxisValueLabel(label)
                 } else {
-                    AxisValueLabel(format: viewModel.xAxisLabelFormat)
+                    AxisValueLabel(format: viewModel.axisConfig.labelFormat)
                 }
-                AxisTick()
                 AxisGridLine()
+                AxisTick()
             }
         }
         .chartYAxis {
-            AxisMarks(values: .stride(by: viewModel.yAxisGridLineInterval)) { value in
+            AxisMarks(values: .stride(by: viewModel.yAxisStep)) { value in
                 AxisGridLine()
-                AxisTick()
-                AxisValueLabel {
-                    if let doubleValue = value.as(Double.self) {
-                        Text("\(Int(doubleValue))")
-                    }
-                }
+                AxisValueLabel("\(Int(value.as(Double.self) ?? 0))")
             }
         }
-        .chartXScale(domain: viewModel.xAxisDomain, range: .plotDimension(padding: 5))
-        .chartYScale(domain: viewModel.chartYScaleDomain)
-        .chartPlotStyle { plotContent in
-            plotContent
-                .background(Color.yellow.opacity(0.1))
-                .border(.black, width: 1)
-        }
+        .chartXScale(domain: viewModel.axisConfig.domain)
+        .chartYScale(domain: viewModel.yAxisRange)
         .frame(height: 300)
         .padding()
         .animation(.easeInOut(duration: 0.25), value: viewModel.selectedPeriod)
     }
-}
-
-#Preview {
-    SessionChartView()
 }

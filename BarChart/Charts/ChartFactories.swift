@@ -7,21 +7,18 @@
 
 import Foundation
 
-
-struct AxisStrategyFactory {
-    static func create(for period: SessionChartViewModel.ChartPeriod) -> ChartAxisStrategy {
+struct StrategyFactory {
+    static func createAxisStrategy(for period: ChartViewModel.ChartPeriod) -> AxisStrategy {
         switch period {
-        case .day: return DayXAxisStrategy()
-        case .threeDays: return ThreeDaysXAxisStrategy()
+        case .day: return DayAxisStrategy()
+        case .threeDays: return ThreeDaysAxisStrategy()
         }
     }
-}
-
-struct DataAggregationStrategyFactory {
-    static func create(for period: SessionChartViewModel.ChartPeriod) -> DataAggregationStrategy {
+    
+    static func createDataAggregator(for period: ChartViewModel.ChartPeriod) -> DataAggregator {
         switch period {
-        case .day: return DayDataAggregationStrategy()
-        case .threeDays: return ThreeDaysDataAggregationStrategy()
+        case .day: return DayDataAggregator()
+        case .threeDays: return ThreeDaysDataAggregator()
         }
     }
 }

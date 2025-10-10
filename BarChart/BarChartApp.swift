@@ -11,8 +11,7 @@ import SwiftUI
 struct BarChartApp: App {
     var body: some Scene {
         WindowGroup {
-//            ContentView()
-            SessionChartView()
+            ChartView()
         }
     }
 }

@@ -7,37 +7,39 @@
 
 import Foundation
 
-//
-//  SessionChartData.swift
-//  BarChart
-//
-//  Created by Denis Yaremenko on 29.09.2025.
-//
-
-import Foundation
-
-struct SessionData: Identifiable {
+// MARK: - Simplified Models
+struct Session: Identifiable {
     let id = UUID()
-    let sittingDate: Date
-    let exercisingDate: Date
-    let sittingBase: Double
-    let sittingOvertime: Double
-    let exercisingBase: Double
-    let exercisingExtra: Double
+    let date: Date
+    let sitting: Activity
+    let exercising: Activity
 }
 
-struct AggregatedData: Identifiable {
+struct Activity {
+    let base: Double
+    let extra: Double
     
-    enum ActivityType: String {
-        case sitting = "Sitting"
-        case exercising = "Exercising"
-    }
-    
+    var total: Double { base + extra }
+}
+
+struct ChartData: Identifiable {
     let id = UUID()
     let date: Date
     let activityType: ActivityType
     let base: Double
     let extra: Double
-    let intervalLabel: String? // New property for interval labels
+    let timeLabel: String?
+    
+    var total: Double { base + extra }
 }
 
+enum ActivityType {
+    case sitting, exercising
+}
+
+struct AxisConfig {
+    let values: [Date]
+    let labels: [String]
+    let domain: ClosedRange<Date>
+    let labelFormat: Date.FormatStyle
+}
