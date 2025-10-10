@@ -14,20 +14,38 @@ func createDate(dayOffset: Int, hour: Int, minute: Int = 0) -> Date {
 }
 
 let testSessionsData: [M_Session] = [
-//    .init(
-//        sittingOverall: 20,
-//        sittingOvertime: 10,
-//        exercisingOverall: 5,
-//        exercisingOvertime: 5,
-//        createdAt: createDate(dayOffset: 0, hour: 8, minute: 30)
-//    ),
-//    .init(
-//        sittingOverall: 20,
-//        sittingOvertime: 10,
-//        exercisingOverall: 5,
-//        exercisingOvertime: 5,
-//        createdAt: createDate(dayOffset: 0, hour: 9, minute: 30)
-//    ),
+    
+    .init(
+        sittingOverall: 20,
+        sittingOvertime: 10,
+        exercisingOverall: 5,
+        exercisingOvertime: 5,
+        createdAt: createDate(dayOffset: -2, hour: 8, minute: 30)
+    ),
+    .init(
+        sittingOverall: 20,
+        sittingOvertime: 10,
+        exercisingOverall: 5,
+        exercisingOvertime: 5,
+        createdAt: createDate(dayOffset: -2, hour: 9, minute: 30)
+    ),
+    
+    .init(
+        sittingOverall: 20,
+        sittingOvertime: 10,
+        exercisingOverall: 5,
+        exercisingOvertime: 5,
+        createdAt: createDate(dayOffset: -1, hour: 8, minute: 30)
+    ),
+    .init(
+        sittingOverall: 20,
+        sittingOvertime: 10,
+        exercisingOverall: 5,
+        exercisingOvertime: 5,
+        createdAt: createDate(dayOffset: -1, hour: 9, minute: 30)
+    ),
+    
+    
     .init(
         sittingOverall: 20,
         sittingOvertime: 10,

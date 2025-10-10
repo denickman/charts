@@ -6,6 +6,12 @@
 
 import SwiftUI
 import Charts
+//
+//  ChartView.swift
+//
+
+import SwiftUI
+import Charts
 
 struct SessionChartView: View {
     @State private var viewModel = SessionChartViewModel()
@@ -23,32 +29,32 @@ struct SessionChartView: View {
                 ForEach(viewModel.chartBars) { bar in
                     BarMark(
                         x: .value("Period", bar.position),
-                        y: .value("Min", bar.baseMinutes),
+                        y: .value("Minutes", bar.baseMinutes),
                         width: .fixed(bar.width)
                     )
                     .foregroundStyle(bar.baseColor)
                     
                     BarMark(
                         x: .value("Period", bar.position),
-                        yStart: .value("Min", bar.baseMinutes),
-                        yEnd: .value("Total", bar.baseMinutes + bar.extraMinutes),
+                        yStart: .value("Minutes", bar.baseMinutes),
+                        yEnd: .value("Total Minutes", bar.baseMinutes + bar.extraMinutes),
                         width: .fixed(bar.width)
                     )
                     .foregroundStyle(bar.extraColor)
                 }
             }
             .chartXAxis {
-                AxisMarks(values: viewModel.axisCenters) { value in
+                AxisMarks(values: viewModel.xAxisCenters) { value in
                     if let date = value.as(Date.self),
-                       let index = viewModel.axisCenters.firstIndex(of: date) {
-                        AxisValueLabel(viewModel.axisLabels[index])
+                       let index = viewModel.xAxisCenters.firstIndex(of: date) {
+                        AxisValueLabel(viewModel.xAxisLabels[index])
                     }
                     AxisTick()
                     AxisGridLine()
                 }
             }
             .chartYAxis {
-                AxisMarks(values: .stride(by: viewModel.yAxisStep)) { value in
+                AxisMarks(values: .stride(by: viewModel.yAxisGridStep)) { value in
                     AxisGridLine()
                     AxisTick()
                     if let minutes = value.as(Double.self) {
@@ -68,6 +74,7 @@ struct SessionChartView: View {
         }
     }
 }
+
 #Preview {
     SessionChartView()
 }

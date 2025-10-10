@@ -44,10 +44,10 @@ enum ChartConfig {
     static func barWidth(for barCount: Int) -> Double {
         switch barCount {
         case ...2: return 30.0
-        case 3...4: return 28.0
-        case 5...6: return 26.0
-        case 7...8: return 24.0
-        case 9...14: return 20.0
+        case 3...4: return 24.0
+        case 5...6: return 18.0
+        case 7...8: return 12.0
+        case 9...14: return 10.0
         default: return Bar.minWidth
         }
     }
