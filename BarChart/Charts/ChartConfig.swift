@@ -8,19 +8,14 @@
 import Foundation
 import SwiftUI
 
-import Foundation
-import SwiftUI
-
 enum ChartConfig {
     enum Bar {
         static let defaultWidth: Double = 14.0
         static let minWidth: Double = 4.0
     }
     
-    enum Time {
-        static let secondsInHour: TimeInterval = 3600
-        static let hoursInDay: Double = 24.0
-    }
+    static let secondsInHour: TimeInterval = 3600
+    static let hoursInDay: Double = 24.0
     
     enum Axis {
         static let defaultPeriodInMinutes: Double = 60.0
@@ -36,14 +31,10 @@ enum ChartConfig {
         }
     }
     
-    enum DateOffsets {
-        static let threeDays: Int = -2
-        static let dayCenterHour: Int = 12
-    }
+    static let threeDaysOffset: Int = -2
+    static let dayCenterHour: Int = 12
     
-    enum DataRanges {
-        static let binHours: Int = 2  // Для 2-часовых бинов в дне
-    }
+    static let segmentHours: Int = 2
     
     enum Colors {
         static let sittingBase = Color.gray.opacity(0.8)

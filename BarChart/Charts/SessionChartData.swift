@@ -24,9 +24,8 @@ struct AggregatedData: Identifiable {
     }
     
     let id = UUID()
-    let date: Date  // Центр периода (бина или дня)
+    let date: Date  // Center of the period (segment or day)
     let activityType: ActivityType
     let base: Double
     let extra: Double
 }
-

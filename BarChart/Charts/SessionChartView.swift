@@ -5,9 +5,9 @@
 ////  Created by Denis Yaremenko on 29.09.2025.
 ////
 //
-import Foundation
 import SwiftUI
 import Charts
+
 import SwiftUI
 import Charts
 
@@ -33,8 +33,8 @@ struct SessionChartView: View {
 
     private var totalsView: some View {
         VStack {
-            Text("Total sitting: \(Int(viewModel.totalSitting)) min")
-            Text("Total exercising: \(Int(viewModel.totalExercising)) min")
+            Text("Total sitting: \(Int(viewModel.totalSittingMinutes)) min")
+            Text("Total exercising: \(Int(viewModel.totalExercisingMinutes)) min")
         }
         .font(.headline)
     }
@@ -43,14 +43,14 @@ struct SessionChartView: View {
         Chart {
             ForEach(viewModel.chartBars) { bar in
                 BarMark(
-                    x: .value("Period", bar.xValue),
+                    x: .value("Period", bar.barDate),
                     y: .value("Minutes", bar.baseHeight),
                     width: .fixed(bar.width)
                 )
                 .foregroundStyle(bar.baseColor)
                 
                 BarMark(
-                    x: .value("Period", bar.xValue),
+                    x: .value("Period", bar.barDate),
                     yStart: .value("Base", bar.baseHeight),
                     yEnd: .value("Top", bar.baseHeight + bar.extraHeight),
                     width: .fixed(bar.width)
@@ -59,11 +59,11 @@ struct SessionChartView: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: viewModel.periodCenters) { value in
+            AxisMarks(values: viewModel.axisCenters) { value in
                 if let date = value.as(Date.self),
-                   let index = viewModel.periodCenters.firstIndex(of: date) {
+                   let index = viewModel.axisCenters.firstIndex(of: date) {
                     AxisValueLabel {
-                        Text(viewModel.periodLabels[index])
+                        Text(viewModel.axisLabels[index])
                     }
                 }
                 AxisTick()
@@ -71,7 +71,7 @@ struct SessionChartView: View {
             }
         }
         .chartYAxis {
-            AxisMarks(values: .stride(by: viewModel.yAxisGridLineInterval)) { value in
+            AxisMarks(values: .stride(by: viewModel.yAxisStep)) { value in
                 AxisGridLine()
                 AxisTick()
                 AxisValueLabel {
@@ -82,7 +82,7 @@ struct SessionChartView: View {
             }
         }
         .chartXScale(domain: viewModel.xAxisDomain)
-        .chartYScale(domain: viewModel.chartYScaleDomain)
+        .chartYScale(domain: viewModel.yAxisDomain)
         .chartPlotStyle { plotContent in
             plotContent
                 .background(Color.yellow.opacity(0.1))
