@@ -8,6 +8,8 @@
 import Foundation
 import SwiftUI
 import Charts
+import SwiftUI
+import Charts
 
 struct SessionChartView: View {
     @State private var viewModel = SessionChartViewModel()
@@ -22,9 +24,8 @@ struct SessionChartView: View {
 
     private var periodPicker: some View {
         Picker("Period", selection: $viewModel.selectedPeriod) {
-            ForEach(SessionChartViewModel.ChartPeriod.allCases, id: \.self) {
-                Text("\($0.rawValue)").tag($0)
-            }
+            Text("1 Day").tag(SessionChartViewModel.ChartPeriod.day)
+            Text("3 Days").tag(SessionChartViewModel.ChartPeriod.threeDays)
         }
         .pickerStyle(.segmented)
         .padding(.horizontal)
@@ -42,26 +43,29 @@ struct SessionChartView: View {
         Chart {
             ForEach(viewModel.chartBars) { bar in
                 BarMark(
-                    x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", bar.xValue),
+                    x: .value("Period", bar.xValue),
                     y: .value("Minutes", bar.baseHeight),
                     width: .fixed(bar.width)
                 )
                 .foregroundStyle(bar.baseColor)
-                .clipShape(.rect(cornerRadius: .zero))
-
+                
                 BarMark(
-                    x: .value(viewModel.selectedPeriod == .day ? "Hours" : "Day", bar.xValue),
+                    x: .value("Period", bar.xValue),
                     yStart: .value("Base", bar.baseHeight),
                     yEnd: .value("Top", bar.baseHeight + bar.extraHeight),
                     width: .fixed(bar.width)
                 )
                 .foregroundStyle(bar.extraColor)
-                .clipShape(.rect(cornerRadius: .zero))
             }
         }
         .chartXAxis {
-            AxisMarks(values: viewModel.xAxisValues) { value in
-                AxisValueLabel(format: viewModel.xAxisLabelFormat)
+            AxisMarks(values: viewModel.periodCenters) { value in
+                if let date = value.as(Date.self),
+                   let index = viewModel.periodCenters.firstIndex(of: date) {
+                    AxisValueLabel {
+                        Text(viewModel.periodLabels[index])
+                    }
+                }
                 AxisTick()
                 AxisGridLine()
             }
@@ -77,7 +81,7 @@ struct SessionChartView: View {
                 }
             }
         }
-        .chartXScale(domain: viewModel.xAxisDomain, range: .plotDimension(padding: 5))
+        .chartXScale(domain: viewModel.xAxisDomain)
         .chartYScale(domain: viewModel.chartYScaleDomain)
         .chartPlotStyle { plotContent in
             plotContent
@@ -86,7 +90,6 @@ struct SessionChartView: View {
         }
         .frame(height: 300)
         .padding()
-        .animation(.easeInOut(duration: 0.25), value: viewModel.selectedPeriod)
     }
 }
 
