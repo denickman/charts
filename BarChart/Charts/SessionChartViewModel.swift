@@ -42,7 +42,7 @@ class SessionChartViewModel {
     
     private let calendar = Calendar.current
     private let sessions = testSessionsData
-    private let sittingExercisingSpacing: TimeInterval = ChartConfig.secondsInHour * 0.5
+    private let spacingBetweeTwoBarsInSegment: TimeInterval = ChartConfig.secondsInHour * 0.5
     
     init() {
         updateChartData()
@@ -58,7 +58,7 @@ class SessionChartViewModel {
         //     AggregatedData(periodCenterDate: 19:00, sitting, 30, 10)
         // ]
         
-        let centers = Array(Set(data.map { $0.periodCenterDate })).sorted()
+        let realSegmentCenters = Array(Set(data.map { $0.periodCenterDate })).sorted()
         // data.map { $0.periodCenterDate } = [13:00, 13:00, 15:00, 15:00, 19:00]
         // Set(...) = {13:00, 15:00, 19:00} (unique values)
         // Array(...).sorted() = [13:00, 15:00, 19:00] ← real centers (not uniform)
@@ -66,19 +66,19 @@ class SessionChartViewModel {
         let baseDate = Date.distantPast
         // baseDate = January 1, 2000, 00:00
         
-        let spacing: TimeInterval = selectedPeriod == .day
+        let distanceBetweenSegmentCenters: TimeInterval = selectedPeriod == .day
             ? ChartConfig.secondsInHour * ChartConfig.Spacing.dayModeSpacingInHours
             : ChartConfig.secondsInHour * ChartConfig.Spacing.threeDaysModeSpacingInHours
         
         // MARK: - X-Axis Setup - Create artificial positions
         artificialSegmentXAxisCenters = []
 
-        for i in 0..<centers.count {
-            // centers = [13:00, 15:00, 19:00] (real segment centers with irregular spacing)
-            // spacing = 2 hours (for day mode) - fixed spacing for uniform display
+        for i in 0..<realSegmentCenters.count {
+            // realSegmentCenters = [13:00, 15:00, 19:00] (real segment centers with irregular spacing)
+            // distanceBetweenSegmentCenters = 2 hours (for day mode) - fixed spacing for uniform display
             
             // Calculate offset for artificial position
-            let artificialTimeInterval = Double(i) * spacing
+            let artificialTimeInterval = Double(i) * distanceBetweenSegmentCenters
             // i=0 → 0 * 2 = 0 hours
             // i=1 → 1 * 2 = 2 hours
             // i=2 → 2 * 2 = 4 hours
@@ -94,20 +94,20 @@ class SessionChartViewModel {
             // Result: [00:00, 02:00, 04:00] - now evenly spaced
         }
         
-        xAxisSegmentLabels = centers.map { center in
-            selectedPeriod == .day ? formatXAxisTimeRange(for: center) : formatXAxisWeekday(for: center)
+        xAxisSegmentLabels = realSegmentCenters.map { realCenter in
+            selectedPeriod == .day ? formatXAxisTimeRange(for: realCenter) : formatXAxisWeekday(for: realCenter)
         }
         
         setupVisibleXAxisRange(centers: artificialSegmentXAxisCenters)
         setupYAxisRangeAndGrid()
-        chartBars = createBars(from: data, centers: centers)
+        chartBars = createBars(from: data, centers: realSegmentCenters)
     }
     
     // MARK: - X-Axis Methods
     private func setupVisibleXAxisRange(centers: [Date]) {
-        guard let first = centers.first, let last = centers.last else { return }
-        let padding = sittingExercisingSpacing * ChartConfig.Spacing.visibleRangePaddingMultiplier
-        visibleXAxisRange = first.addingTimeInterval(-padding)...last.addingTimeInterval(padding)
+        guard let firstCenter = centers.first, let lastCenter = centers.last else { return }
+        let axisPadding = spacingBetweeTwoBarsInSegment * ChartConfig.Spacing.visibleRangePaddingMultiplier
+        visibleXAxisRange = firstCenter.addingTimeInterval(-axisPadding)...lastCenter.addingTimeInterval(axisPadding)
     }
     
     private func calculateBarPositionByOffsettingFromSegmentCenter(
@@ -117,15 +117,15 @@ class SessionChartViewModel {
         guard let index = centers.firstIndex(of: item.periodCenterDate) else {
             return item.periodCenterDate
         }
-        let offset = item.activityType == .sitting ? -sittingExercisingSpacing : sittingExercisingSpacing
+        let barOffsetFromCenter = item.activityType == .sitting ? -spacingBetweeTwoBarsInSegment : spacingBetweeTwoBarsInSegment
         // Для центра 13:00 (index=0): 00:00 ± 30min = 23:30 или 00:30
           // Оба бара остаются в пределах 2-часового диапазона 12-14!
-        return artificialSegmentXAxisCenters[index].addingTimeInterval(offset)
+        return artificialSegmentXAxisCenters[index].addingTimeInterval(barOffsetFromCenter)
     }
     
     private func formatXAxisTimeRange(for centerDate: Date) -> String {
-        let hour = calendar.component(.hour, from: centerDate) - 1 // 13 - 1 = 12 / 15 - 1 = 14
-        return "\(hour)-\(hour + ChartConfig.segmentHours)" // 12 + 2 = 14 / 14 + 2 = 16
+        let segmentStartHour = calendar.component(.hour, from: centerDate) - 1 // 13 - 1 = 12 / 15 - 1 = 14
+        return "\(segmentStartHour)-\(segmentStartHour + ChartConfig.segmentHours)" // 12 + 2 = 14 / 14 + 2 = 16
     }
     
     private func formatXAxisWeekday(for date: Date) -> String {
@@ -140,19 +140,19 @@ class SessionChartViewModel {
     
     private func calculateMaxYValue() -> Double {
         let data = computeAggregatedData()
-        let maxMinutes = data.map { $0.baseMinutes + $0.extraMinutes }.max() ?? 0
-        return max(maxMinutes, ChartConfig.Axis.defaultPeriodInMinutes) * ChartConfig.Axis.YAxis.maxScaleFactor
+        let maxTotalMinutes = data.map { $0.baseMinutes + $0.extraMinutes }.max() ?? 0
+        return max(maxTotalMinutes, ChartConfig.Axis.defaultPeriodInMinutes) * ChartConfig.Axis.YAxis.maxScaleFactor
     }
     
     private func calculateYAxisGridStep() -> Double {
-        let hour: Double = 60
-        let maxValue = calculateMaxYValue()
+        let oneHourInMinutes: Double = 60
+        let maxYValue = calculateMaxYValue()
         
-        switch maxValue {
-        case ...hour: return ChartConfig.Axis.GridStep.small.rawValue
-        case ...(hour * ChartConfig.Axis.YAxis.mediumThreshold): return ChartConfig.Axis.GridStep.medium.rawValue
-        case ...(hour * ChartConfig.Axis.YAxis.largeThreshold): return ChartConfig.Axis.GridStep.large.rawValue
-        default: return max(maxValue / ChartConfig.Axis.YAxis.stepDivisor, hour)
+        switch maxYValue {
+        case ...oneHourInMinutes: return ChartConfig.Axis.GridStep.small.rawValue
+        case ...(oneHourInMinutes * ChartConfig.Axis.YAxis.mediumThreshold): return ChartConfig.Axis.GridStep.medium.rawValue
+        case ...(oneHourInMinutes * ChartConfig.Axis.YAxis.largeThreshold): return ChartConfig.Axis.GridStep.large.rawValue
+        default: return max(maxYValue / ChartConfig.Axis.YAxis.stepDivisor, oneHourInMinutes)
         }
     }
     
@@ -191,7 +191,7 @@ class SessionChartViewModel {
     }
     
     private func createBars(from data: [AggregatedData], centers: [Date]) -> [ChartBar] {
-        let width = ChartConfig.barWidth(for: data.count)
+        let barWidth = ChartConfig.barWidth(for: data.count)
         
         return data.map { item in
             let position = calculateBarPositionByOffsettingFromSegmentCenter(for: item, centers: centers)
@@ -203,7 +203,7 @@ class SessionChartViewModel {
                 extraMinutes: item.extraMinutes,
                 baseColor: colors.base,
                 extraColor: colors.extra,
-                width: width
+                width: barWidth
             )
         }
     }

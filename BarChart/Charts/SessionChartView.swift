@@ -6,12 +6,6 @@
 
 import SwiftUI
 import Charts
-//
-//  ChartView.swift
-//
-
-import SwiftUI
-import Charts
 
 struct SessionChartView: View {
     @State private var viewModel = SessionChartViewModel()
