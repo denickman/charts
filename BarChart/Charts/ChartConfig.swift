@@ -15,6 +15,13 @@ enum ChartConfig {
     static let dayCenterHour: Int = 12
     static let segmentHours: Int = 2
     
+    // MARK: - Bar Spacing Constants
+    enum Spacing {
+        static let dayModeSpacingInHours: Double = 2
+        static let threeDaysModeSpacingInHours: Double = 4
+        static let visibleRangePaddingMultiplier: Double = 2
+    }
+    
     enum Bar {
         static let minWidth: Double = 4.0
     }

@@ -51,13 +51,13 @@ let testSessionsData: [M_Session] = [
         sittingOvertime: 10,
         exercisingOverall: 15,
         exercisingOvertime: 5,
-        createdAt: createDate(dayOffset: 0, hour: 13)
+        createdAt: createDate(dayOffset: 0, hour: 5)
     ),
     .init(
         sittingOverall: 20,
         sittingOvertime: 10,
         exercisingOverall: 5,
         exercisingOvertime: 5,
-        createdAt: createDate(dayOffset: 0, hour: 13, minute: 50)
+        createdAt: createDate(dayOffset: 0, hour: 5, minute: 50)
     )
 ]

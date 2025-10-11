@@ -29,7 +29,7 @@ class SessionChartViewModel {
     }
     
     // MARK: - X-Axis Properties
-    var xAxisSegmentCenter: [Date] = []
+    var artificialSegmentXAxisCenters: [Date] = []
     var xAxisSegmentLabels: [String] = []
     var visibleXAxisRange: ClosedRange<Date> = Date()...Date()
     
@@ -50,28 +50,55 @@ class SessionChartViewModel {
     
     private func updateChartData() {
         let data = computeAggregatedData()
-        // centers = [15 october 12:00, 16 october 12:00, 17 october 12:00]
+        // data = [
+        //     AggregatedData(periodCenterDate: 13:00, sitting, 20, 10),
+        //     AggregatedData(periodCenterDate: 13:00, exercising, 15, 5),
+        //     AggregatedData(periodCenterDate: 15:00, sitting, 25, 15),
+        //     AggregatedData(periodCenterDate: 15:00, exercising, 10, 5),
+        //     AggregatedData(periodCenterDate: 19:00, sitting, 30, 10)
+        // ]
+        
         let centers = Array(Set(data.map { $0.periodCenterDate })).sorted()
+        // data.map { $0.periodCenterDate } = [13:00, 13:00, 15:00, 15:00, 19:00]
+        // Set(...) = {13:00, 15:00, 19:00} (unique values)
+        // Array(...).sorted() = [13:00, 15:00, 19:00] ← real centers (not uniform)
         
         let baseDate = Date.distantPast
+        // baseDate = January 1, 2000, 00:00
+        
         let spacing: TimeInterval = selectedPeriod == .day
-            ? ChartConfig.secondsInHour * 2
-            : ChartConfig.secondsInHour * 4
+            ? ChartConfig.secondsInHour * ChartConfig.Spacing.dayModeSpacingInHours
+            : ChartConfig.secondsInHour * ChartConfig.Spacing.threeDaysModeSpacingInHours
         
         // MARK: - X-Axis Setup - Create artificial positions
-        xAxisSegmentCenter = []
+        artificialSegmentXAxisCenters = []
 
         for i in 0..<centers.count {
+            // centers = [13:00, 15:00, 19:00] (real segment centers with irregular spacing)
+            // spacing = 2 hours (for day mode) - fixed spacing for uniform display
+            
+            // Calculate offset for artificial position
             let artificialTimeInterval = Double(i) * spacing
+            // i=0 → 0 * 2 = 0 hours
+            // i=1 → 1 * 2 = 2 hours
+            // i=2 → 2 * 2 = 4 hours
+            
+            // Create artificial position from base date
             let artificialPosition = baseDate.addingTimeInterval(artificialTimeInterval)
-            xAxisSegmentCenter.append(artificialPosition)
+            // i=0 → 00:00 + 0 = 00:00 (for 13:00 real data)
+            // i=1 → 00:00 + 2 hours = 02:00 (for 15:00 real data)
+            // i=2 → 00:00 + 4 hours = 04:00 (for 19:00 real data)
+            
+            // Add artificial position to array
+            artificialSegmentXAxisCenters.append(artificialPosition)
+            // Result: [00:00, 02:00, 04:00] - now evenly spaced
         }
         
         xAxisSegmentLabels = centers.map { center in
             selectedPeriod == .day ? formatXAxisTimeRange(for: center) : formatXAxisWeekday(for: center)
         }
         
-        setupVisibleXAxisRange(centers: xAxisSegmentCenter)
+        setupVisibleXAxisRange(centers: artificialSegmentXAxisCenters)
         setupYAxisRangeAndGrid()
         chartBars = createBars(from: data, centers: centers)
     }
@@ -79,20 +106,21 @@ class SessionChartViewModel {
     // MARK: - X-Axis Methods
     private func setupVisibleXAxisRange(centers: [Date]) {
         guard let first = centers.first, let last = centers.last else { return }
-        let padding = sittingExercisingSpacing * 2
+        let padding = sittingExercisingSpacing * ChartConfig.Spacing.visibleRangePaddingMultiplier
         visibleXAxisRange = first.addingTimeInterval(-padding)...last.addingTimeInterval(padding)
     }
     
-    private func calculateXPositionWithOffset(for item: AggregatedData, centers: [Date]) -> Date {
+    private func calculateBarPositionByOffsettingFromSegmentCenter(
+        for item: AggregatedData,
+        centers: [Date]
+    ) -> Date {
         guard let index = centers.firstIndex(of: item.periodCenterDate) else {
-            // (of: 15 october 12:00) = 0
-            // (of: 16 october 12:00) = 1
             return item.periodCenterDate
         }
-        // 00:00 ± 30 min
-        // 04:00 ± 30 min
         let offset = item.activityType == .sitting ? -sittingExercisingSpacing : sittingExercisingSpacing
-        return xAxisSegmentCenter[index].addingTimeInterval(offset)
+        // Для центра 13:00 (index=0): 00:00 ± 30min = 23:30 или 00:30
+          // Оба бара остаются в пределах 2-часового диапазона 12-14!
+        return artificialSegmentXAxisCenters[index].addingTimeInterval(offset)
     }
     
     private func formatXAxisTimeRange(for centerDate: Date) -> String {
@@ -166,7 +194,7 @@ class SessionChartViewModel {
         let width = ChartConfig.barWidth(for: data.count)
         
         return data.map { item in
-            let position = calculateXPositionWithOffset(for: item, centers: centers)
+            let position = calculateBarPositionByOffsettingFromSegmentCenter(for: item, centers: centers)
             let colors = getColors(for: item.activityType)
             
             return ChartBar(
@@ -193,84 +221,12 @@ class SessionChartViewModel {
 // Aggregate data
 private extension SessionChartViewModel {
     func computeAggregatedData() -> [AggregatedData] {
-        let filtered = filterSessions()
-        return selectedPeriod == .day
-        ? aggregateBySegments(sessions: filtered)
-        : aggregateByDays(sessions: filtered)
-    }
-    
-    func aggregateBySegments(sessions: [M_Session]) -> [AggregatedData] {
-        let today = calendar.startOfDay(for: Date())
-        
-        // Step 1: Group sessions by 2-hour intervals manually
-        var groupedSessionsByTimeInterval: [Int: [M_Session]] = [:]
-        
-        for session in sessions {
-            let hour = calendar.component(.hour, from: session.createdAt)
-            let intervalIndex = hour / ChartConfig.segmentHours
-            let intervalStartHour = intervalIndex * ChartConfig.segmentHours
-            
-            // Create empty array for this key if it doesn't exist
-            if groupedSessionsByTimeInterval[intervalStartHour] == nil {
-                groupedSessionsByTimeInterval[intervalStartHour] = []
-            }
-            // Add session to the array for this interval
-            groupedSessionsByTimeInterval[intervalStartHour]!.append(session)
-        }
-        
-        var aggregatedResults: [AggregatedData] = []
-        
-        // Step 2: Process each group of sessions
-        for (intervalStartHour, groupedSessions) in groupedSessionsByTimeInterval.sorted(by: { $0.key < $1.key }) {
-            
-            // Calculate interval center (middle of 2-hour range)
-            let intervalCenter = calendar.date(byAdding: .hour, value: intervalStartHour + 1, to: today)!
-            
-            // Step 3: Create aggregated data for this group
-            let dataForThisInterval = createDataEntries(
-                for: groupedSessions,
-                center: intervalCenter
-            )
-            
-            aggregatedResults.append(contentsOf: dataForThisInterval)
-        }
-        
-        return aggregatedResults
-    }
-
-    func aggregateByDays(sessions: [M_Session]) -> [AggregatedData] {
-        // Step 1: Group sessions by days manually
-        var groupedSessionsByDay: [Date: [M_Session]] = [:]
-        
-        for session in sessions {
-            // dayStart = 00:00 of each day
-            let dayStart = calendar.startOfDay(for: session.createdAt)
-            
-            // Create empty array for this day if it doesn't exist
-            if groupedSessionsByDay[dayStart] == nil {
-                groupedSessionsByDay[dayStart] = []
-            }
-            // Add session to the array for this day
-            groupedSessionsByDay[dayStart]!.append(session)
-        }
-        
-        var aggregatedResults: [AggregatedData] = []
-        
-        // Step 2: Process each day group of sessions
-        for (dayStart, groupedSessions) in groupedSessionsByDay.sorted(by: { $0.key < $1.key }) {
-            
-            // Calculate day center (12:00 - noon)
-            let dayCenter = calendar.date(byAdding: .hour, value: ChartConfig.dayCenterHour, to: dayStart)!
-            
-            // Step 3: Create aggregated data for this day
-            let dataForThisDay = createDataEntries(
-                for: groupedSessions,
-                center: dayCenter
-            )
-            
-            aggregatedResults.append(contentsOf: dataForThisDay)
-        }
-        
-        return aggregatedResults
-    }
+          let filtered = filterSessions()
+          
+          let strategy: DataAggregationStrategy = selectedPeriod == .day
+              ? IntraDayAggregationStrategy()
+              : DailyAggregationStrategy()
+          
+          return strategy.aggregate(sessions: filtered, calendar: calendar)
+      }
 }

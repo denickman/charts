@@ -44,9 +44,11 @@ struct SessionChartView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: viewModel.xAxisSegmentCenter) { value in 
+                AxisMarks(values: viewModel.artificialSegmentXAxisCenters) { value in
+                    // uses artificial centers: [00:00, 02:00, 04:00]
                     if let date = value.as(Date.self),
-                       let index = viewModel.xAxisSegmentCenter.firstIndex(of: date) {
+                       let index = viewModel.artificialSegmentXAxisCenters.firstIndex(of: date) {
+                        // set titles: "12-14", "14-16", "18-20"
                         AxisValueLabel(viewModel.xAxisSegmentLabels[index])
                     }
                     AxisTick()
