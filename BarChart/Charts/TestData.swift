@@ -58,6 +58,6 @@ let testSessionsData: [M_Session] = [
         sittingOvertime: 10,
         exercisingOverall: 5,
         exercisingOvertime: 5,
-        createdAt: createDate(dayOffset: 0, hour: 15)
+        createdAt: createDate(dayOffset: 0, hour: 13, minute: 50)
     )
 ]

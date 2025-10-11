@@ -7,17 +7,63 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "060A40A3-3688-45B8-9EB9-BC9F528A955D"
+            uuid = "3A032C1B-FC03-48E4-A82A-7170002CB5BC"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "BarChart/Charts/SessionChartViewModel.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "38"
-            endingLineNumber = "38"
-            landmarkName = "selectedPeriod"
-            landmarkType = "24">
+            startingLineNumber = "52"
+            endingLineNumber = "52"
+            landmarkName = "updateChartData()"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "3A032C1B-FC03-48E4-A82A-7170002CB5BC - 27e43fe5289f38f9"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "BarChart.SessionChartViewModel.updateChartData() -&gt; ()"
+                  moduleName = "BarChart.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/denisyaremenko/Desktop/DEV/iOS/Education/2025/SA%20part%201/Charts/Charts%20Intro/BarChart/BarChart/Charts/SessionChartViewModel.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "52"
+                  endingLineNumber = "52">
+               </Location>
+               <Location
+                  uuid = "3A032C1B-FC03-48E4-A82A-7170002CB5BC - 54652c9df556b615"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (BarChart.AggregatedData) -&gt; Foundation.Date in BarChart.SessionChartViewModel.updateChartData() -&gt; ()"
+                  moduleName = "BarChart.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/denisyaremenko/Desktop/DEV/iOS/Education/2025/SA%20part%201/Charts/Charts%20Intro/BarChart/BarChart/Charts/SessionChartViewModel.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "52"
+                  endingLineNumber = "52">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "656B92BB-9B1C-4B32-B3FE-BB719F9AFFD7"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "BarChart/Charts/SessionChartViewModel.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "54"
+            endingLineNumber = "54"
+            landmarkName = "updateChartData()"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

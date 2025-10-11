@@ -44,10 +44,10 @@ struct SessionChartView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: viewModel.xAxisCenters) { value in
+                AxisMarks(values: viewModel.xAxisSegmentCenter) { value in 
                     if let date = value.as(Date.self),
-                       let index = viewModel.xAxisCenters.firstIndex(of: date) {
-                        AxisValueLabel(viewModel.xAxisLabels[index])
+                       let index = viewModel.xAxisSegmentCenter.firstIndex(of: date) {
+                        AxisValueLabel(viewModel.xAxisSegmentLabels[index])
                     }
                     AxisTick()
                     AxisGridLine()
@@ -62,8 +62,8 @@ struct SessionChartView: View {
                     }
                 }
             }
-            .chartXScale(domain: viewModel.xAxisRange)
-            .chartYScale(domain: viewModel.yAxisRange)
+            .chartXScale(domain: viewModel.visibleXAxisRange)
+            .chartYScale(domain: viewModel.visibleYAxisRange)
             .chartPlotStyle { plot in
                 plot
                     .background(Color.yellow.opacity(0.1))
